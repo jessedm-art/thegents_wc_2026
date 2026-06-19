@@ -261,7 +261,8 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 /* ════════════════════════════════════
    MISC
 ════════════════════════════════════ */
-details[open] .how-to-arrow{transform:rotate(180deg);}
+.how-to-arrow{transform:rotate(180deg);}
+details:not([open]) .how-to-arrow{transform:rotate(0deg);}
 details summary::-webkit-details-marker{display:none;}
 .warn-card{background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:12px 14px;margin:0 16px 14px;font-size:13px;color:#78350f;display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .no-data{padding:40px 16px;text-align:center;color:var(--muted);font-size:13px;letter-spacing:.03em;}
@@ -437,7 +438,7 @@ const POINTS={group:3,wildcard:5,r32:5,r16:10,qf:15,sf:20,champion:50};
    Phase 2: Wildcards (open now)
    Phase 3: Bracket (opens June 28, 2026 after FIFA announces R32 matchups)
 ══════════════════════════════════════════ */
-const BRACKET_OPEN_DATE=new Date('2026-06-28T00:00:00');
+const BRACKET_OPEN_DATE=new Date('2026-06-28T04:00:00Z');// midnight ET — after last group stage match ends Jun 27 ~10 PM ET
 function isBracketOpen(){
   // Admin can force-open via gist flag; otherwise date-gated
   if(S.allData?.bracketOpen===true)return true;
@@ -642,7 +643,7 @@ function rNav(active){
   return`
 <div class="top-bar">
   <div class="top-bar-inner">
-    <span class="top-title">The Gents WC 2026</span>
+    <span class="top-title" onclick="nav('home')" style="cursor:pointer">The Gents WC 2026</span>
     <span class="top-user">${S.username||''}</span>
     <div style="display:flex;align-items:center;gap:2px;">
       <button class="btn-chat${S.chatOpen?' active':''}" id="b-chat" onclick="toggleChat()" title="Shit talk">💬</button>
@@ -750,7 +751,7 @@ ${rNav('home')}
   ${!isBracketOpen()?`
   <div style="margin:0 16px 4px;background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:10px 14px;font-size:12px;color:#78350f;display:flex;align-items:center;gap:8px;">
     <span style="font-size:15px">📅</span>
-    <span><strong>Phase 3 bracket opens June 28</strong> — complete phases 1 &amp; 2 now${bracketCountdown()?`, ${bracketCountdown()} away`:''}</span>
+    <span><strong>Phase 3 bracket opens June 28</strong> — wildcards confirmed after group stage ends Jun 27${bracketCountdown()?` · ${bracketCountdown()} away`:''}</span>
   </div>`:''}
 
   <div class="quick-grid">
@@ -795,7 +796,7 @@ ${rNav('home')}
   </div>`:''}
 
   <div style="margin:16px 16px 4px">
-    <details style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);">
+    <details open style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);">
       <summary style="padding:14px 16px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none;">
         <span>How to Play</span>
         <span class="how-to-arrow" style="font-size:10px;transition:transform .2s">▼</span>
@@ -935,7 +936,7 @@ ${rNav('bracket')}
   <div style="padding:48px 24px;text-align:center;">
     <div style="font-size:52px;margin-bottom:20px">🔒</div>
     <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--ink);margin-bottom:10px">Bracket Opens June 28</div>
-    <div style="font-size:14px;color:var(--muted);max-width:280px;margin:0 auto 24px;line-height:1.6">FIFA finalises all 16 Round of 32 matchups after the group stage ends June 27. We'll open the bracket picking immediately after.</div>
+    <div style="font-size:14px;color:var(--muted);max-width:300px;margin:0 auto 24px;line-height:1.6">The 8 wildcard teams are confirmed once the group stage ends June 27 (~midnight ET). The full R32 bracket locks in automatically — no draw ceremony — and we open picks right after.</div>
     ${cd?`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);display:inline-flex;flex-direction:column;align-items:center;padding:18px 32px;gap:4px;">
       <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:var(--ink);line-height:1">${cd}</div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">until bracket opens</div>
