@@ -452,8 +452,8 @@ function emptyPicks(){
    GITHUB GIST
 ══════════════════════════════════════════ */
 async function fetchGist(){
-  const r=await fetch(`https://api.github.com/gists/${S.gistId}`,
-    {headers:S.token?{Authorization:`token ${S.token}`}:{}});
+  // Public gist — no auth header needed (and avoids 401 from stale tokens)
+  const r=await fetch(`https://api.github.com/gists/${S.gistId}`);
   if(!r.ok)throw new Error(`GitHub ${r.status}`);
   const g=await r.json();
   return JSON.parse(g.files['wc2026.json'].content);
