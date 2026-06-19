@@ -326,6 +326,45 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
   .qcard{padding:13px 5px 11px;min-height:80px;}
   .home-hero h2{font-size:26px;}
 }
+
+/* ════════════════════════════════════
+   CHAT SIDEBAR
+════════════════════════════════════ */
+#chat-sidebar{
+  position:fixed;top:0;right:-340px;width:320px;height:100dvh;z-index:300;
+  background:var(--paper);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+  transition:right .28s cubic-bezier(.4,0,.2,1);
+  padding-top:calc(52px + env(safe-area-inset-top));
+  padding-bottom:max(env(safe-area-inset-bottom),8px);
+  box-shadow:-4px 0 24px rgba(0,0,0,.08);
+}
+#chat-sidebar.open{right:0;}
+.chat-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--border);}
+.chat-header-title{font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:var(--ink);}
+.chat-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px 6px;line-height:1;transition:color .15s;}
+.chat-close:hover{color:var(--ink);}
+.chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+.chat-msg{display:flex;flex-direction:column;gap:3px;}
+.chat-msg-meta{font-size:11px;font-weight:600;color:var(--muted);display:flex;gap:6px;align-items:baseline;}
+.chat-msg-name{color:var(--ink);}
+.chat-msg-time{font-weight:400;}
+.chat-msg-text{font-size:13px;color:var(--ink);line-height:1.5;word-break:break-word;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 11px;}
+.chat-msg.mine .chat-msg-text{background:#eef5ee;border-color:#c6dcc6;}
+.chat-msg.mine .chat-msg-meta{flex-direction:row-reverse;}
+.chat-input-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);align-items:flex-end;}
+#chat-input{flex:1;border:1px solid var(--border);border-radius:18px;padding:9px 13px;font-size:13px;font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);outline:none;resize:none;max-height:88px;line-height:1.45;overflow-y:auto;}
+#chat-input:focus{border-color:var(--ink);}
+.chat-send{background:var(--ink);color:var(--paper);border:none;border-radius:50%;width:36px;height:36px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;margin-bottom:1px;}
+.chat-send:hover{opacity:.75;}
+.chat-empty{text-align:center;color:var(--muted);font-size:13px;padding:36px 0 20px;line-height:1.6;}
+.chat-emoji-row{display:flex;gap:4px;padding:6px 12px 2px;flex-wrap:wrap;}
+.chat-emoji{background:none;border:1px solid var(--border);border-radius:8px;font-size:16px;padding:4px 6px;cursor:pointer;transition:background .12s;line-height:1;}
+.chat-emoji:hover{background:var(--card);}
+.btn-chat{background:none;border:none;font-size:18px;cursor:pointer;padding:8px;opacity:.5;transition:opacity .2s;line-height:1;position:relative;}
+.btn-chat:hover,.btn-chat.active{opacity:1;}
+#chat-overlay{display:none;position:fixed;inset:0;z-index:299;background:rgba(0,0,0,.2);}
+#chat-overlay.open{display:block;}
 </style>
 </head>
 <body>
@@ -394,14 +433,14 @@ const POINTS={group:3,wildcard:5,r32:5,r16:10,qf:15,sf:20,champion:50};
    SHARED CONFIG (pre-loaded for all users)
 ══════════════════════════════════════════ */
 const SHARED_GIST='054ac2260430df697050eea30f327cfc';
-const SHARED_TOKEN='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';
+const SHARED_TOKEN='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';
 
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
 const S={screen:'setup',gistId:SHARED_GIST,token:SHARED_TOKEN,username:null,isAdmin:false,apiKey:null,
   allData:null,myPicks:null,saving:false,error:null,
-  picksTab:'groups',bracketRound:'r32'};
+  picksTab:'groups',bracketRound:'r32',chatOpen:false};
 
 function emptyPicks(){
   return{groups:{},wildcards:[],
@@ -574,7 +613,10 @@ function rNav(active){
   <div class="top-bar-inner">
     <span class="top-title">The Gents WC 2026</span>
     <span class="top-user">${S.username||''}</span>
-    <button class="btn-gear" onclick="nav('setup')">${gearSVG}</button>
+    <div style="display:flex;align-items:center;gap:2px;">
+      <button class="btn-chat${S.chatOpen?' active':''}" id="b-chat" onclick="toggleChat()" title="Shit talk">💬</button>
+      <button class="btn-gear" onclick="nav('setup')">${gearSVG}</button>
+    </div>
   </div>
 </div>
 <div class="top-spacer"></div>
@@ -1131,7 +1173,7 @@ async function doSetup(){
   saveLocal();S.saving=true;render();
   try{S.allData=await fetchGist();S.myPicks=S.allData.users?.[S.username]||emptyPicks();}
   catch(e){showErr('Could not load: '+e.message);S.saving=false;render();return;}
-  S.saving=false;nav('home');
+  S.saving=false;nav('home');createChatSidebar();
 }
 
 function toggleGroup(gid,team){
@@ -1310,11 +1352,141 @@ async function doSaveResults(){
 }
 
 /* ══════════════════════════════════════════
+   CHAT
+══════════════════════════════════════════ */
+const QUICK_EMOJIS=['😂','🔥','💀','🤣','😭','👀','🙏','😤','🐐','📈','🫡','🤡'];
+let chatPollTimer=null;
+
+function timeAgo(ts){
+  const d=Math.floor((Date.now()-ts)/1000);
+  if(d<60)return'just now';
+  if(d<3600)return Math.floor(d/60)+'m ago';
+  if(d<86400)return Math.floor(d/3600)+'h ago';
+  return new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+
+function createChatSidebar(){
+  if(document.getElementById('chat-sidebar'))return;
+  const overlay=document.createElement('div');
+  overlay.id='chat-overlay';
+  overlay.onclick=toggleChat;
+  document.body.appendChild(overlay);
+
+  const el=document.createElement('div');
+  el.id='chat-sidebar';
+  el.innerHTML=`
+    <div class="chat-header">
+      <span class="chat-header-title">💬 The Gents Chat</span>
+      <button class="chat-close" onclick="toggleChat()">×</button>
+    </div>
+    <div class="chat-msgs" id="chat-msgs"></div>
+    <div class="chat-emoji-row" id="chat-emoji-row">
+      ${QUICK_EMOJIS.map(e=>`<button class="chat-emoji" onclick="insertEmoji('${e}')">${e}</button>`).join('')}
+    </div>
+    <div class="chat-input-row">
+      <textarea id="chat-input" placeholder="Talk shit…" rows="1"
+        oninput="autoResizeChatInput(this)"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+      <button class="chat-send" onclick="sendChat()">➤</button>
+    </div>`;
+  document.body.appendChild(el);
+  renderChatMessages();
+}
+
+function autoResizeChatInput(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,88)+'px';
+}
+
+function insertEmoji(e){
+  const inp=document.getElementById('chat-input');
+  if(!inp)return;
+  const pos=inp.selectionStart||inp.value.length;
+  inp.value=inp.value.slice(0,pos)+e+inp.value.slice(pos);
+  inp.focus();
+  inp.setSelectionRange(pos+e.length,pos+e.length);
+  autoResizeChatInput(inp);
+}
+
+function toggleChat(){
+  S.chatOpen=!S.chatOpen;
+  const sidebar=document.getElementById('chat-sidebar');
+  const overlay=document.getElementById('chat-overlay');
+  if(sidebar)sidebar.classList.toggle('open',S.chatOpen);
+  if(overlay)overlay.classList.toggle('open',S.chatOpen);
+  // update button style without full re-render
+  const btn=document.getElementById('b-chat');
+  if(btn)btn.classList.toggle('active',S.chatOpen);
+  if(S.chatOpen){
+    renderChatMessages();
+    if(!chatPollTimer)chatPollTimer=setInterval(pollChat,30000);
+  } else {
+    if(chatPollTimer){clearInterval(chatPollTimer);chatPollTimer=null;}
+  }
+}
+
+function renderChatMessages(){
+  const el=document.getElementById('chat-msgs');
+  if(!el)return;
+  const msgs=(S.allData?.messages)||[];
+  if(!msgs.length){
+    el.innerHTML='<div class="chat-empty">No messages yet.<br>Be the first to shit talk 💀</div>';
+    return;
+  }
+  el.innerHTML=msgs.map(m=>{
+    const mine=m.username===S.username;
+    return`<div class="chat-msg${mine?' mine':''}">
+      <div class="chat-msg-meta">
+        <span class="chat-msg-name">${mine?'You':m.username}</span>
+        <span class="chat-msg-time">${timeAgo(m.ts)}</span>
+      </div>
+      <div class="chat-msg-text">${escHtml(m.text)}</div>
+    </div>`;
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+}
+
+async function sendChat(){
+  const inp=document.getElementById('chat-input');
+  const text=(inp?.value||'').trim();
+  if(!text||!S.username)return;
+  inp.value='';
+  autoResizeChatInput(inp);
+  const msg={id:Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    username:S.username,text,ts:Date.now()};
+  try{
+    const data=await fetchGist();
+    if(!data.messages)data.messages=[];
+    data.messages.push(msg);
+    if(data.messages.length>100)data.messages=data.messages.slice(-100);
+    await writeGist(data);
+    S.allData=data;
+    renderChatMessages();
+  }catch(e){toast('Send failed: '+e.message);}
+}
+
+async function pollChat(){
+  if(!S.chatOpen||!S.gistId)return;
+  try{
+    const data=await fetchGist();
+    const oldLen=(S.allData?.messages||[]).length;
+    S.allData=data;
+    if((data.messages||[]).length!==oldLen)renderChatMessages();
+  }catch(e){}
+}
+
+/* ══════════════════════════════════════════
    GLOBALS (for onclick)
 ══════════════════════════════════════════ */
 window.nav=nav;window.toggleGroup=toggleGroup;window.toggleWC=toggleWC;
 window.pickB=pickB;window.switchTab=switchTab;window.setBracketRound=setBracketRound;
 window.fetchLiveResults=fetchLiveResults;
+window.toggleChat=toggleChat;window.sendChat=sendChat;window.insertEmoji=insertEmoji;window.autoResizeChatInput=autoResizeChatInput;
 
 /* ══════════════════════════════════════════
    INIT
@@ -1322,7 +1494,7 @@ window.fetchLiveResults=fetchLiveResults;
 async function init(){
   loadLocal();
   if(S.gistId&&S.username){
-    try{S.allData=await fetchGist();S.myPicks=S.allData.users?.[S.username]||emptyPicks();nav('home');return;}
+    try{S.allData=await fetchGist();S.myPicks=S.allData.users?.[S.username]||emptyPicks();nav('home');createChatSidebar();return;}
     catch(e){}
   }
   nav('setup');
