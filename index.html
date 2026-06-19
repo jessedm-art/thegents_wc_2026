@@ -456,7 +456,10 @@ async function fetchGist(){
   const r=await fetch(`https://api.github.com/gists/${S.gistId}`);
   if(!r.ok)throw new Error(`GitHub ${r.status}`);
   const g=await r.json();
-  return JSON.parse(g.files['wc2026.json'].content);
+  // Try wc2026.json first, fall back to first file in gist
+  const file=g.files['wc2026.json']||Object.values(g.files)[0];
+  if(!file)throw new Error('Gist is empty');
+  return JSON.parse(file.content);
 }
 async function writeGist(data){
   const r=await fetch(`https://api.github.com/gists/${S.gistId}`,{
