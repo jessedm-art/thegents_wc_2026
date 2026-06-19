@@ -433,12 +433,12 @@ const POINTS={group:3,wildcard:5,r32:5,r16:10,qf:15,sf:20,champion:50};
    SHARED CONFIG (pre-loaded for all users)
 ══════════════════════════════════════════ */
 const SHARED_GIST='054ac2260430df697050eea30f327cfc';
-const SHARED_TOKEN='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';
+const SHARED_TOKEN=''; // Token is entered by admin in Settings — never hardcoded
 
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
-const S={screen:'setup',gistId:SHARED_GIST,token:SHARED_TOKEN,username:null,isAdmin:false,apiKey:null,
+const S={screen:'setup',gistId:SHARED_GIST,token:null,username:null,isAdmin:false,apiKey:null,
   allData:null,myPicks:null,saving:false,error:null,
   picksTab:'groups',bracketRound:'r32',chatOpen:false};
 
@@ -494,12 +494,13 @@ async function savePicks(){
 ══════════════════════════════════════════ */
 function loadLocal(){
   try{const c=JSON.parse(localStorage.getItem('wc26')||'{}');
-    S.gistId=c.gistId||SHARED_GIST;S.token=c.token||SHARED_TOKEN;
+    S.gistId=c.gistId||SHARED_GIST;
+    if(c.token)S.token=c.token;  // admin's personal token, stored locally only
     if(c.username)S.username=c.username;if(c.isAdmin)S.isAdmin=c.isAdmin;
     if(c.apiKey)S.apiKey=c.apiKey;}catch(e){}
   try{const h={};location.hash.slice(1).split('&').forEach(p=>{
     const[k,v]=p.split('=');if(k)h[k]=decodeURIComponent(v||'');});
-    if(h.gist)S.gistId=h.gist;if(h.key)S.token=h.key;}catch(e){}
+    if(h.gist)S.gistId=h.gist;}catch(e){}  // never read token from URL
 }
 function saveLocal(){
   localStorage.setItem('wc26',JSON.stringify({gistId:S.gistId,token:S.token,username:S.username,isAdmin:S.isAdmin,apiKey:S.apiKey}));
@@ -640,10 +641,17 @@ function rSetup(){return`
     <div class="field"><label>Your Name</label>
       <input id="i-name" type="text" placeholder="e.g. Jesse" value="${S.username||''}"></div>
     <label class="check-label" style="${new URLSearchParams(location.search).has('admin')||S.isAdmin?'':'display:none'}"><input type="checkbox" id="i-admin"${S.isAdmin?' checked':''} onchange="document.getElementById('f-apikey').style.display=this.checked?'block':'none'"> I'm the admin (enter results &amp; lock picks)</label>
-    <div class="field" id="f-apikey" style="margin-top:12px;${S.isAdmin?'':'display:none'}">
-      <label>football-data.org API Key <span class="badge-sm">admin only</span></label>
-      <input id="i-apikey" type="password" placeholder="Your free API key" value="${S.apiKey||''}">
-      <span class="hint-text"><a href="https://www.football-data.org/client/register" target="_blank" style="color:var(--ink);font-weight:600">Get a free key →</a> · Stored locally</span>
+    <div id="f-apikey" style="margin-top:12px;${S.isAdmin?'':'display:none'}">
+      <div class="field">
+        <label>GitHub Token <span class="badge-sm">admin only</span></label>
+        <input id="i-github-token" type="password" placeholder="ghp_…  (gist scope only)" value="${S.token||''}">
+        <span class="hint-text">Stored locally on this device only. <a href="https://github.com/settings/tokens/new?scopes=gist&description=WC2026+bracket" target="_blank" style="color:var(--ink);font-weight:600">Create one →</a></span>
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label>football-data.org API Key <span class="badge-sm">admin only</span></label>
+        <input id="i-apikey" type="password" placeholder="Your free API key" value="${S.apiKey||''}">
+        <span class="hint-text"><a href="https://www.football-data.org/client/register" target="_blank" style="color:var(--ink);font-weight:600">Get a free key →</a> · Stored locally</span>
+      </div>
     </div>
     <button class="btn-primary" id="b-setup">${S.saving?'Loading…':'Let\'s Go →'}</button>
   </div>
@@ -1156,12 +1164,13 @@ function bindEvents(){
 /* ── Actions ── */
 async function doSetup(){
   const name=(document.getElementById('i-name')?.value||'').trim();
-  const token=(document.getElementById('i-token')?.value||'').trim();
+  const githubToken=(document.getElementById('i-github-token')?.value||'').trim();
   const gistId=(document.getElementById('i-gist')?.value||'').trim();
   const admin=document.getElementById('i-admin')?.checked;
   const apiKey=(document.getElementById('i-apikey')?.value||'').trim();
   if(!name){showErr('Please enter your name');return;}
-  S.username=name;S.token=token||S.token||null;S.isAdmin=admin;
+  S.username=name;S.isAdmin=admin;
+  if(githubToken)S.token=githubToken;
   if(apiKey)S.apiKey=apiKey;
   if(!gistId&&!S.gistId){
     if(!S.token){showErr('A GitHub token is required to create storage');return;}
