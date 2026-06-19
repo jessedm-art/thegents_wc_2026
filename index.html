@@ -258,6 +258,41 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 .rg-check input{accent-color:var(--ink);}
 .wc-res-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
 
+/* ── Leaderboard view tabs ── */
+.lb-view-tabs{display:flex;gap:6px;padding:12px 16px 0;}
+.lb-view-tab{flex:1;padding:9px;text-align:center;font-size:11px;font-weight:600;border-radius:var(--r);border:1.5px solid var(--border2);background:var(--surface);color:var(--muted);cursor:pointer;transition:all .15s;}
+.lb-view-tab.active{background:var(--ink);color:white;border-color:var(--ink);}
+.lb-view{display:none;}
+.lb-view.active{display:block;}
+/* Score Race */
+.chart-wrap{margin:12px 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.chart-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.chart-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;}
+.chart-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.chart-replay{font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--border2);background:var(--bg2);border-radius:var(--rs);padding:5px 10px;cursor:pointer;}
+#lb-race-svg{width:100%;display:block;}
+.lb-legend{display:flex;flex-wrap:wrap;gap:8px 16px;padding:12px 16px;border-top:1px solid var(--border);}
+.lb-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--ink2);}
+.lb-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.lb-legend-me{font-weight:700;color:var(--ink);}
+.lb-mini-podium{margin:0 16px 16px;display:flex;flex-direction:column;gap:4px;}
+.lb-mini-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;}
+.lb-mini-row.is-me{border-color:var(--ink);background:var(--bg2);font-weight:600;}
+.lb-mini-rank{width:20px;font-size:11px;font-weight:700;color:var(--muted);}
+.lb-mini-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.lb-mini-name{flex:1;}
+.lb-mini-score{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;}
+.lb-mini-pts{font-size:10px;color:var(--muted);}
+/* The Dude dream canvas */
+.lb-dream-wrap{position:relative;background:#06030f;overflow:hidden;min-height:360px;}
+#lb-dream-canvas{display:block;width:100%;height:auto;cursor:pointer;}
+.lb-dream-text{position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;padding:16px;font-family:'Playfair Display',serif;font-size:28px;font-weight:700;letter-spacing:.28em;color:#c9a84c;text-shadow:0 0 30px rgba(201,168,76,.95),0 0 80px rgba(201,168,76,.5),0 0 140px rgba(201,168,76,.2);opacity:0;transition:opacity 1.4s ease;pointer-events:none;}
+.lb-dream-text.visible{opacity:1;}
+.lb-dream-replay{position:absolute;top:12px;right:12px;padding:5px 12px;border:1px solid rgba(201,168,76,.35);color:rgba(201,168,76,.7);font-family:'Courier New',monospace;font-size:9px;font-weight:700;letter-spacing:.1em;cursor:pointer;background:rgba(6,3,15,.7);border-radius:3px;}
+/* Rick Roll toast */
+.rr-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:white;font-size:13px;font-weight:600;padding:10px 20px;border-radius:999px;white-space:nowrap;z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1),opacity .3s;opacity:0;pointer-events:none;}
+.rr-toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+
 /* ════════════════════════════════════
    MISC
 ════════════════════════════════════ */
@@ -371,6 +406,7 @@ details summary::-webkit-details-marker{display:none;}
 </style>
 </head>
 <body>
+<div id="rr-toast" class="rr-toast">Never gonna give you up…</div>
 <div id="app"></div>
 <script>
 /* ══════════════════════════════════════════
@@ -643,7 +679,7 @@ function rNav(active){
   return`
 <div class="top-bar">
   <div class="top-bar-inner">
-    <span class="top-title" onclick="nav('home')" style="cursor:pointer">The Gents WC 2026</span>
+    <span class="top-title" style="cursor:pointer">The Gents WC 2026</span>
     <span class="top-user">${S.username||''}</span>
     <div style="display:flex;align-items:center;gap:2px;">
       <button class="btn-chat${S.chatOpen?' active':''}" id="b-chat" onclick="toggleChat()" title="Shit talk">💬</button>
@@ -1142,12 +1178,26 @@ function rankTitle(rank){
   return'Sweet Little Boy that is not good at anything at all, but at least a good hang';
 }
 
+/* ── Leaderboard tab state ── */
+let _lbRaceData=null,_lbRaceMax=130,lbRaceRan=false,lbRaceAnimFrame;
+let lbDreamRaf=null,lbDreamStarted=false;
+const LB_PALETTE=['#4361ee','#e07766','#3da87e','#9d71ea','#e08f3a','#4bacc6','#f72585','#4cc9f0'];
+const LB_CPS=['Start','A–D','E–H','I–L','Wild','R32','R16','QF','SF','Final'];
+
 function rLeaderboard(){
   const users=Object.values(S.allData?.users||{});
   const results=S.allData?.results||{};
   const ranked=[...users].map(u=>({u,sc:scoreUser(u,results),p:completion(u)})).sort((a,b)=>b.sc-a.sc||b.p-a.p);
   const top3=ranked.slice(0,3);
   const rest=ranked.slice(3);
+
+  // Compute race data as a side effect so animation fns can access it
+  _lbRaceData=ranked.length?buildLbRaceData(ranked,results):[];
+  const maxFinal=_lbRaceData.length?Math.max(..._lbRaceData.map(p=>p.scores[p.scores.length-1])):0;
+  _lbRaceMax=Math.max(Math.ceil(maxFinal/25)*25+25,50);
+  lbRaceRan=false;
+  if(lbDreamRaf){cancelAnimationFrame(lbDreamRaf);lbDreamRaf=null;}
+  lbDreamStarted=false;
 
   return`
 ${rNav('leaderboard')}
@@ -1158,34 +1208,81 @@ ${rNav('leaderboard')}
     <p class="screen-sub">Scores update as results come in</p>
   </div>
 
-  ${!ranked.length?`<div class="no-data">No participants yet</div>`:`
-  <div class="lb-top3">
-    ${top3.map(({u,sc,p},i)=>`
-    <div class="lb-top3-item">
-      <div class="lb-rank-num${i===0?' p1':''}">${i===0?'1':i===1?'2':'3'}</div>
-      <div class="lb-avatar${i===1?' p2':i===2?' p3':''}">${u.username[0].toUpperCase()}</div>
-      <div class="lb-name">${u.username}${u.username===S.username?`<span class="you-badge" style="margin-left:6px">you</span>`:''}
-        <div class="lb-title">${rankTitle(i+1)}</div>
-        <div class="lb-pct">${p}% complete</div>
-      </div>
-      <div class="lb-score-col">
-        <div class="lb-score">${sc}</div>
-        <div class="lb-pts">pts</div>
-      </div>
-    </div>`).join('')}
+  <div class="lb-view-tabs">
+    <div class="lb-view-tab active" data-lbv="classic" onclick="switchLbView('classic')">Classic</div>
+    <div class="lb-view-tab" data-lbv="race" onclick="switchLbView('race')">Score Race</div>
+    <div class="lb-view-tab" data-lbv="lebowski" onclick="switchLbView('lebowski')">The Dude</div>
   </div>
 
-  ${rest.length?`<div class="lb-list">
-    ${rest.map(({u,sc,p},i)=>`
-    <div class="lb-item${u.username===S.username?' is-me':''}">
-      <div class="lb-rank">#${i+4}</div>
-      <div class="lb-avatar" style="width:32px;height:32px;font-size:13px">${u.username[0].toUpperCase()}</div>
-      <div class="lb-name-sm">${u.username}${u.username===S.username?' (you)':''}
-        <div class="lb-title">${rankTitle(i+4)}</div>
-        <div class="lb-pct">${p}% complete</div></div>
-      <div class="lb-score-col"><div class="lb-score-sm">${sc}</div><div class="lb-pts-sm">pts</div></div>
-    </div>`).join('')}
-  </div>`:''}`}
+  <!-- CLASSIC -->
+  <div class="lb-view active" id="lb-view-classic">
+    ${!ranked.length?`<div class="no-data">No participants yet</div>`:`
+    <div class="lb-top3">
+      ${top3.map(({u,sc,p},i)=>`
+      <div class="lb-top3-item">
+        <div class="lb-rank-num${i===0?' p1':''}">${i+1}</div>
+        <div class="lb-avatar${i===1?' p2':i===2?' p3':''}">${u.username[0].toUpperCase()}</div>
+        <div class="lb-name">${u.username}${u.username===S.username?`<span class="you-badge" style="margin-left:6px">you</span>`:''}
+          <div class="lb-title">${rankTitle(i+1)}</div>
+          <div class="lb-pct">${p}% complete</div>
+        </div>
+        <div class="lb-score-col">
+          <div class="lb-score">${sc}</div>
+          <div class="lb-pts">pts</div>
+        </div>
+      </div>`).join('')}
+    </div>
+    ${rest.length?`<div class="lb-list">
+      ${rest.map(({u,sc,p},i)=>`
+      <div class="lb-item${u.username===S.username?' is-me':''}">
+        <div class="lb-rank">#${i+4}</div>
+        <div class="lb-avatar" style="width:32px;height:32px;font-size:13px">${u.username[0].toUpperCase()}</div>
+        <div class="lb-name-sm">${u.username}${u.username===S.username?' (you)':''}
+          <div class="lb-title">${rankTitle(i+4)}</div>
+          <div class="lb-pct">${p}% complete</div></div>
+        <div class="lb-score-col"><div class="lb-score-sm">${sc}</div><div class="lb-pts-sm">pts</div></div>
+      </div>`).join('')}
+    </div>`:''}`}
+  </div>
+
+  <!-- SCORE RACE -->
+  <div class="lb-view" id="lb-view-race">
+    <div style="padding:14px 16px 4px">
+      <div class="screen-eyebrow" style="margin-bottom:2px">Score Race</div>
+      <p class="screen-sub">Points accumulated across phases</p>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Score Progression</div>
+          <div class="chart-sub">Group stage through knockout rounds</div>
+        </div>
+        <button class="chart-replay" onclick="runLbRace()">Replay ↺</button>
+      </div>
+      <svg id="lb-race-svg" viewBox="0 0 440 280" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="lb-legend">
+        ${(_lbRaceData||[]).map(p=>`<div class="lb-legend-item${p.isMe?' lb-legend-me':''}"><div class="lb-legend-dot" style="background:${p.color}"></div>${p.name}${p.isMe?' (you)':''}</div>`).join('')}
+      </div>
+    </div>
+    <div class="lb-mini-podium">
+      ${ranked.map(({u,sc},i)=>`
+      <div class="lb-mini-row${u.username===S.username?' is-me':''}">
+        <div class="lb-mini-rank">${i+1}</div>
+        <div class="lb-mini-swatch" style="background:${LB_PALETTE[i%LB_PALETTE.length]}"></div>
+        <div class="lb-mini-name">${u.username}${u.username===S.username?` <span class="you-badge">you</span>`:''}</div>
+        <div class="lb-mini-score">${sc}</div><div class="lb-mini-pts"> pts</div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- THE DUDE -->
+  <div class="lb-view" id="lb-view-lebowski">
+    <div class="lb-dream-wrap">
+      <canvas id="lb-dream-canvas" width="480" height="420" onclick="window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ','_blank')"></canvas>
+      <div class="lb-dream-text" id="lb-dream-text">THE DUDE ABIDES</div>
+      <button class="lb-dream-replay" onclick="startLbDream()">REPLAY</button>
+    </div>
+  </div>
 
   ${S.isAdmin?`
   <div class="card admin-card">
@@ -1240,6 +1337,192 @@ ${rNav('leaderboard')}
   </div>`:''}
 </div>`;}
 
+function buildLbRaceData(ranked,results){
+  const grpIds=GROUPS.map(g=>g.id);
+  const allG=results.groups||{};
+  const br=results.bracket||{};
+  function partial(nG,wc,bKeys){
+    const r={},g={};
+    grpIds.slice(0,nG).forEach(id=>{if(allG[id])g[id]=allG[id];});
+    if(Object.keys(g).length)r.groups=g;
+    if(wc&&results.wildcards)r.wildcards=results.wildcards;
+    if(bKeys.length){const b={};bKeys.forEach(k=>{if(br[k])b[k]=br[k];});if(Object.keys(b).length)r.bracket=b;}
+    return r;
+  }
+  const pList=[
+    {},
+    partial(4,false,[]),
+    partial(8,false,[]),
+    partial(12,false,[]),
+    partial(12,true,[]),
+    partial(12,true,['r32']),
+    partial(12,true,['r32','r16']),
+    partial(12,true,['r32','r16','qf']),
+    partial(12,true,['r32','r16','qf','sf']),
+    (()=>{const p=partial(12,true,['r32','r16','qf','sf']);if(br.champion){if(!p.bracket)p.bracket={};p.bracket.champion=br.champion;}return p;})()
+  ];
+  return ranked.map(({u},i)=>({
+    name:u.username,isMe:u.username===S.username,
+    color:LB_PALETTE[i%LB_PALETTE.length],
+    scores:pList.map(pr=>scoreUser(u,pr))
+  }));
+}
+
+function switchLbView(v){
+  document.querySelectorAll('.lb-view-tab').forEach(t=>t.classList.toggle('active',t.dataset.lbv===v));
+  document.querySelectorAll('.lb-view').forEach(el=>el.classList.toggle('active',el.id===`lb-view-${v}`));
+  if(v!=='lebowski'&&lbDreamRaf){cancelAnimationFrame(lbDreamRaf);lbDreamRaf=null;lbDreamStarted=false;}
+  if(v==='race') setTimeout(()=>{if(!lbRaceRan)runLbRace();},100);
+  if(v==='lebowski') setTimeout(()=>{if(!lbDreamStarted)startLbDream();},300);
+}
+
+function buildLbRaceSVGBase(){
+  const svg=document.getElementById('lb-race-svg');
+  if(!svg||!_lbRaceData)return;
+  svg.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  const gEl=(tag,attrs={},parent=svg)=>{
+    const el=document.createElementNS(ns,tag);
+    Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));
+    parent.appendChild(el);return el;
+  };
+  const PAD={top:20,right:76,bottom:38,left:30};
+  const W=440,H=280,cW=W-PAD.left-PAD.right,cH=H-PAD.top-PAD.bottom;
+  const n=LB_CPS.length;
+  const xP=i=>PAD.left+(i/(n-1))*cW;
+  const yP=v=>PAD.top+cH-(v/_lbRaceMax)*cH;
+  const step=_lbRaceMax<=100?25:50;
+  for(let v=0;v<=_lbRaceMax;v+=step){
+    const y=yP(v);
+    gEl('line',{x1:PAD.left,y1:y,x2:W-PAD.right,y2:y,stroke:'#e5e2db','stroke-width':'1'});
+    if(v>0)gEl('text',{x:PAD.left-4,y:y+4,'font-size':'9',fill:'#8a8278','text-anchor':'end','font-family':'system-ui'}).textContent=v;
+  }
+  const xWild=xP(4);
+  gEl('line',{x1:xWild,y1:PAD.top,x2:xWild,y2:H-PAD.bottom,stroke:'#fde68a','stroke-width':'1.5','stroke-dasharray':'3,3'});
+  gEl('text',{x:xWild+3,y:PAD.top+9,'font-size':'7.5',fill:'#b45309','font-family':'system-ui','font-weight':'700'}).textContent='KO';
+  LB_CPS.forEach((cp,i)=>{
+    const x=xP(i);
+    gEl('line',{x1:x,y1:PAD.top,x2:x,y2:H-PAD.bottom,stroke:'#f3f1ee','stroke-width':'1'});
+    gEl('text',{x,y:H-PAD.bottom+14,'font-size':'8',fill:'#8a8278','text-anchor':'middle','font-family':'system-ui'}).textContent=cp;
+  });
+  gEl('line',{x1:PAD.left,y1:H-PAD.bottom,x2:W-PAD.right,y2:H-PAD.bottom,stroke:'#ccc9c1','stroke-width':'1'});
+  _lbRaceData.forEach((p,i)=>{
+    gEl('path',{id:`lbp-${i}`,fill:'none',stroke:p.color,'stroke-width':p.isMe?'2.8':'1.8','stroke-linecap':'round','stroke-linejoin':'round',opacity:p.isMe?'1':'0.75',d:''});
+    gEl('circle',{id:`lbd-${i}`,r:p.isMe?'4':'3',fill:p.color,opacity:'0',cx:'0',cy:'0'});
+    const lbl=gEl('text',{id:`lbl-${i}`,'font-size':p.isMe?'10':'9','font-weight':p.isMe?'700':'500',fill:p.color,opacity:'0','font-family':'system-ui',x:'0',y:'0'});
+    lbl.textContent=p.name.split(' ')[0];
+  });
+}
+
+function runLbRace(){
+  cancelAnimationFrame(lbRaceAnimFrame);
+  lbRaceRan=true;
+  buildLbRaceSVGBase();
+  const PAD={top:20,right:76,bottom:38,left:30};
+  const W=440,H=280,cW=W-PAD.left-PAD.right,cH=H-PAD.top-PAD.bottom;
+  const n=LB_CPS.length;
+  const xP=i=>PAD.left+(i/(n-1))*cW;
+  const yP=v=>PAD.top+cH-(v/_lbRaceMax)*cH;
+  const totalMs=2400,start=performance.now();
+  function frame(now){
+    const t=Math.min((now-start)/totalMs,1);
+    const ease=t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+    if(!_lbRaceData)return;
+    _lbRaceData.forEach((p,i)=>{
+      const progress=ease*(n-1);
+      const segIdx=Math.floor(progress);
+      const segFrac=progress-segIdx;
+      let d='';
+      for(let j=0;j<=Math.min(segIdx,n-1);j++){
+        const x=xP(j),y=yP(p.scores[j]);
+        if(j===0)d+=`M ${x} ${y}`;
+        else{const px=xP(j-1),py=yP(p.scores[j-1]),cx=(px+x)/2;d+=` C ${cx} ${py} ${cx} ${y} ${x} ${y}`;}
+      }
+      const dot=document.getElementById(`lbd-${i}`);
+      const lbl=document.getElementById(`lbl-${i}`);
+      const path=document.getElementById(`lbp-${i}`);
+      if(!dot||!lbl||!path)return;
+      if(segIdx<n-1){
+        const x0=xP(segIdx),y0=yP(p.scores[segIdx]);
+        const x1=xP(segIdx+1),y1=yP(p.scores[segIdx+1]);
+        const cx=(x0+x1)/2;
+        const bx=x0*(1-segFrac)**2+2*cx*(1-segFrac)*segFrac+(segFrac<0.5?cx:x1)*segFrac**2;
+        const by=y0*(1-segFrac)**2+2*((y0+y1)/2)*(1-segFrac)*segFrac+y1*segFrac**2;
+        d+=` C ${cx} ${y0} ${cx} ${y1} ${bx} ${by}`;
+        dot.setAttribute('cx',bx);dot.setAttribute('cy',by);dot.setAttribute('opacity','1');
+        lbl.setAttribute('opacity','0');
+      } else {
+        const lastX=xP(n-1),lastY=yP(p.scores[n-1]);
+        dot.setAttribute('cx',lastX);dot.setAttribute('cy',lastY);dot.setAttribute('opacity','1');
+        lbl.setAttribute('x',lastX+6);lbl.setAttribute('y',lastY+4);lbl.setAttribute('opacity','1');
+      }
+      path.setAttribute('d',d);
+    });
+    if(t<1)lbRaceAnimFrame=requestAnimationFrame(frame);
+  }
+  lbRaceAnimFrame=requestAnimationFrame(frame);
+}
+
+function startLbDream(){
+  if(lbDreamRaf)cancelAnimationFrame(lbDreamRaf);
+  lbDreamStarted=true;
+  const canvas=document.getElementById('lb-dream-canvas');
+  const overlay=document.getElementById('lb-dream-text');
+  if(!canvas||!overlay)return;
+  overlay.classList.remove('visible');
+  const ctx=canvas.getContext('2d');
+  const CW=canvas.width,CH=canvas.height;
+  ctx.fillStyle='#06030f';ctx.fillRect(0,0,CW,CH);
+  let t=0;
+  function drawPin(cx,cy,sz,color){
+    ctx.save();ctx.translate(cx,cy);ctx.fillStyle=color;
+    ctx.beginPath();ctx.arc(0,-sz*1.15,sz*0.38,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-sz*0.42,sz*0.62);ctx.lineTo(sz*0.42,sz*0.62);
+    ctx.lineTo(sz*0.28,-sz*0.52);ctx.lineTo(-sz*0.28,-sz*0.52);
+    ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.ellipse(0,sz*0.62,sz*0.42,sz*0.14,0,0,Math.PI);ctx.fill();
+    ctx.restore();
+  }
+  function drawBall(cx,cy,r){
+    const g=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,r*0.05,cx,cy,r);
+    g.addColorStop(0,'#4a4a4a');g.addColorStop(0.5,'#141414');g.addColorStop(1,'#060606');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.13)';
+    [[-r*0.22,-r*0.15],[r*0.22,-r*0.15],[0,r*0.25]].forEach(([dx,dy])=>{
+      ctx.beginPath();ctx.arc(cx+dx,cy+dy,r*0.18,0,Math.PI*2);ctx.fill();
+    });
+  }
+  const RINGS=[{r:32,n:5,spd:0.55,sz:7.5},{r:70,n:9,spd:-0.38,sz:8.5},{r:112,n:13,spd:0.28,sz:9.5},{r:155,n:17,spd:-0.2,sz:10.5},{r:198,n:21,spd:0.14,sz:11}];
+  function dreamFrame(){
+    t+=0.009;
+    ctx.fillStyle='rgba(6,3,15,0.22)';ctx.fillRect(0,0,CW,CH);
+    const cx=CW/2,cy=CH/2;
+    for(let l=0;l<10;l++){
+      const a=(l/10)*Math.PI*2+t*0.18,hue=(l*36+t*18)%360;
+      ctx.strokeStyle=`hsla(${hue},70%,28%,0.12)`;ctx.lineWidth=20;
+      ctx.beginPath();ctx.moveTo(cx,cy);
+      ctx.lineTo(cx+Math.cos(a)*CW*0.8,cy+Math.sin(a)*CH*0.8);ctx.stroke();
+    }
+    RINGS.forEach((ring,ri)=>{
+      for(let i=0;i<ring.n;i++){
+        const a=(i/ring.n)*Math.PI*2+t*ring.spd;
+        const x=cx+Math.cos(a)*ring.r,y=cy+Math.sin(a)*ring.r;
+        const hue=(t*36+ri*52+i*(360/ring.n))%360;
+        drawPin(x,y,ring.sz,`hsla(${hue},92%,${62+14*Math.sin(t*1.8+i*0.7)}%,0.93)`);
+      }
+    });
+    const bAngle=t*0.75,bDist=50+30*Math.sin(t*0.55);
+    drawBall(cx+Math.cos(bAngle)*bDist,cy+Math.sin(bAngle)*bDist,11+4*Math.sin(t*1.3));
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,28);
+    g.addColorStop(0,`hsla(${(t*55)%360},100%,80%,0.55)`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,28,0,Math.PI*2);ctx.fill();
+    if(t>5&&!overlay.classList.contains('visible'))overlay.classList.add('visible');
+    lbDreamRaf=requestAnimationFrame(dreamFrame);
+  }
+  dreamFrame();
+}
+
 /* ══════════════════════════════════════════
    BIND
 ══════════════════════════════════════════ */
@@ -1256,6 +1539,18 @@ function bindEvents(){
   q('b-save-br')?.addEventListener('click',savePicks);
   q('b-save-res')?.addEventListener('click',doSaveResults);
   q('b-fetch-res')?.addEventListener('click',fetchLiveResults);
+  // Rick Roll: triple-click title within 600ms; single click → nav home
+  let rrClicks=0,rrTimer;
+  document.querySelector('.top-title')?.addEventListener('click',()=>{
+    rrClicks++;clearTimeout(rrTimer);
+    rrTimer=setTimeout(()=>rrClicks=0,600);
+    if(rrClicks>=3){
+      rrClicks=0;
+      const t=document.getElementById('rr-toast');
+      if(t){t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
+      setTimeout(()=>window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ','_blank'),800);
+    } else {nav('home');}
+  });
 }
 
 /* ── Actions ── */
