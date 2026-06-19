@@ -261,6 +261,8 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 /* ════════════════════════════════════
    MISC
 ════════════════════════════════════ */
+details[open] .how-to-arrow{transform:rotate(180deg);}
+details summary::-webkit-details-marker{display:none;}
 .warn-card{background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:12px 14px;margin:0 16px 14px;font-size:13px;color:#78350f;display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .no-data{padding:40px 16px;text-align:center;color:var(--muted);font-size:13px;letter-spacing:.03em;}
 .divider{height:1px;background:var(--border);margin:8px 0;}
@@ -430,6 +432,29 @@ const ROUND_SIZES={r32:16,r16:8,qf:4,sf:2};
 const POINTS={group:3,wildcard:5,r32:5,r16:10,qf:15,sf:20,champion:50};
 
 /* ══════════════════════════════════════════
+   PHASES
+   Phase 1: Groups (open now)
+   Phase 2: Wildcards (open now)
+   Phase 3: Bracket (opens June 28, 2026 after FIFA announces R32 matchups)
+══════════════════════════════════════════ */
+const BRACKET_OPEN_DATE=new Date('2026-06-28T00:00:00');
+function isBracketOpen(){
+  // Admin can force-open via gist flag; otherwise date-gated
+  if(S.allData?.bracketOpen===true)return true;
+  return Date.now()>=BRACKET_OPEN_DATE.getTime();
+}
+function bracketCountdown(){
+  const ms=BRACKET_OPEN_DATE.getTime()-Date.now();
+  if(ms<=0)return null;
+  const d=Math.floor(ms/86400000);
+  const h=Math.floor((ms%86400000)/3600000);
+  const m=Math.floor((ms%3600000)/60000);
+  if(d>0)return`${d}d ${h}h`;
+  if(h>0)return`${h}h ${m}m`;
+  return`${m}m`;
+}
+
+/* ══════════════════════════════════════════
    SHARED CONFIG (pre-loaded for all users)
 ══════════════════════════════════════════ */
 const SHARED_GIST='44e5045f48e01f55006039f5fa3357ac';
@@ -540,10 +565,12 @@ function completion(picks){
   if(!picks)return 0;let done=0,total=0;
   GROUPS.forEach(g=>{total++;if((picks.groups[g.id]||[]).length===2)done++;});
   total++;if((picks.wildcards||[]).length===8)done++;
-  const b=picks.bracket||{};
-  [['r32',16],['r16',8],['qf',4],['sf',2]].forEach(([k,n])=>{
-    total+=n;done+=(b[k]||[]).filter(Boolean).length;});
-  total++;if(b.champion)done++;
+  if(isBracketOpen()){
+    const b=picks.bracket||{};
+    [['r32',16],['r16',8],['qf',4],['sf',2]].forEach(([k,n])=>{
+      total+=n;done+=(b[k]||[]).filter(Boolean).length;});
+    total++;if(b.champion)done++;
+  }
   return Math.round(done/total*100);
 }
 function scoreUser(picks,results){
@@ -675,9 +702,9 @@ function rSetup(){return`
     <ul class="info-list">
       <li>Admin creates the bracket with a GitHub token (free)</li>
       <li>Share the link — friends enter their name to join</li>
-      <li>Pick 2 teams to advance from each of 12 groups</li>
-      <li>Pick 8 wildcard teams (best 3rd-place finishers)</li>
-      <li>Fill the full knockout bracket round by round</li>
+      <li><strong>Phase 1 (now):</strong> Pick 2 teams to advance from each of 12 groups</li>
+      <li><strong>Phase 2 (now):</strong> Pick the 8 best 3rd-place wildcard teams</li>
+      <li><strong>Phase 3 (Jun 28):</strong> Full knockout bracket opens once matchups are set</li>
       <li>Leaderboard updates as real results come in</li>
     </ul>
     <div class="score-grid" style="margin-top:16px">
@@ -717,8 +744,14 @@ ${rNav('home')}
       </svg>
       <span class="ring-pct">${pct}%<span class="ring-sub">done</span></span>
     </div>
-    <p class="hero-sub">${pct===100?'Bracket complete — good luck':'Continue filling your bracket below'}</p>
+    <p class="hero-sub">${pct===100?'All phases complete — good luck!':(isBracketOpen()?'Fill in your knockout bracket picks':'Complete groups &amp; wildcards — bracket opens Jun 28')}</p>
   </div>
+
+  ${!isBracketOpen()?`
+  <div style="margin:0 16px 4px;background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:10px 14px;font-size:12px;color:#78350f;display:flex;align-items:center;gap:8px;">
+    <span style="font-size:15px">📅</span>
+    <span><strong>Phase 3 bracket opens June 28</strong> — complete phases 1 &amp; 2 now${bracketCountdown()?`, ${bracketCountdown()} away`:''}</span>
+  </div>`:''}
 
   <div class="quick-grid">
     <button class="qcard" onclick="nav('groups')">
@@ -731,10 +764,10 @@ ${rNav('home')}
       <span class="qcard-label">Wildcards</span>
       <span class="qcard-sub">${wcDone}/8</span>
     </button>
-    <button class="qcard" onclick="nav('bracket')">
-      <span class="qcard-icon" style="display:flex;align-items:center;justify-content:center;color:var(--ink2)">${ICONS.bracket_card}</span>
+    <button class="qcard" onclick="nav('bracket')" ${!isBracketOpen()?'style="opacity:.55"':''}>
+      <span class="qcard-icon" style="display:flex;align-items:center;justify-content:center;color:var(--ink2)">${isBracketOpen()?ICONS.bracket_card:'🔒'}</span>
       <span class="qcard-label">Bracket</span>
-      <span class="qcard-sub">${bDone}/31</span>
+      <span class="qcard-sub">${isBracketOpen()?bDone+'/31':'Jun 28'}</span>
     </button>
   </div>
 
@@ -760,6 +793,33 @@ ${rNav('home')}
   <div style="padding:8px 16px 0">
     <button class="btn-secondary" onclick="nav('leaderboard')">Admin: Enter Results</button>
   </div>`:''}
+
+  <div style="margin:16px 16px 4px">
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);">
+      <summary style="padding:14px 16px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none;">
+        <span>How to Play</span>
+        <span class="how-to-arrow" style="font-size:10px;transition:transform .2s">▼</span>
+      </summary>
+      <div style="padding:0 16px 16px;border-top:1px solid var(--border)">
+        <ul class="info-list" style="margin-top:12px">
+          <li>Share the bracket link — friends enter their name to join</li>
+          <li><strong>Phase 1 (now):</strong> Pick 2 teams to advance from each of 12 groups</li>
+          <li><strong>Phase 2 (now):</strong> Pick the 8 best 3rd-place wildcard teams</li>
+          <li><strong>Phase 3 (Jun 28):</strong> Full knockout bracket opens once matchups are set</li>
+          <li>Leaderboard updates live as real results come in</li>
+        </ul>
+        <div class="score-grid" style="margin-top:14px">
+          <div class="score-item"><span>Group advance</span><strong>+${POINTS.group} pts</strong></div>
+          <div class="score-item"><span>Wildcard</span><strong>+${POINTS.wildcard} pts</strong></div>
+          <div class="score-item"><span>Round of 32</span><strong>+${POINTS.r32} pts</strong></div>
+          <div class="score-item"><span>Round of 16</span><strong>+${POINTS.r16} pts</strong></div>
+          <div class="score-item"><span>Quarterfinal</span><strong>+${POINTS.qf} pts</strong></div>
+          <div class="score-item"><span>Semifinal</span><strong>+${POINTS.sf} pts</strong></div>
+          <div class="score-item" style="grid-column:1/-1"><span>Champion</span><strong>+${POINTS.champion} pts</strong></div>
+        </div>
+      </div>
+    </details>
+  </div>
 </div>`;}
 
 /* ── GROUPS ───────────────────────────── */
@@ -769,9 +829,9 @@ function rGroups(){
 ${rNav('groups')}
 <div class="screen">
   <div class="screen-hero">
-    <div class="screen-eyebrow">Stage One</div>
+    <div class="screen-eyebrow">Phase 1 · Groups</div>
     <h2 class="screen-h2">Group Stage</h2>
-    <p class="screen-sub">Select 2 teams to advance from each group</p>
+    <p class="screen-sub">Pick 2 teams to advance from each group</p>
     ${locked?`<div class="locked-pill">${ICONS.lock} Predictions are locked</div>`:''}
   </div>
   <div class="groups-grid">
@@ -818,7 +878,7 @@ function rWildcards(){
 ${rNav('wildcards')}
 <div class="screen">
   <div class="screen-hero">
-    <div class="screen-eyebrow">Stage Two</div>
+    <div class="screen-eyebrow">Phase 2 · Wildcards</div>
     <h2 class="screen-h2">Wildcard Picks</h2>
     <p class="screen-sub">Pick the 8 best 3rd-place teams that advance</p>
     ${locked?`<div class="locked-pill">${ICONS.lock} Predictions are locked</div>`:''}
@@ -859,6 +919,37 @@ ${rNav('wildcards')}
 
 /* ── BRACKET ──────────────────────────── */
 function rBracket(){
+  const bracketOpen=isBracketOpen();
+
+  // Phase 3 gate — bracket not open yet
+  if(!bracketOpen){
+    const cd=bracketCountdown();
+    return`
+${rNav('bracket')}
+<div class="screen">
+  <div class="screen-hero">
+    <div class="screen-eyebrow">Phase 3 · Bracket</div>
+    <h2 class="screen-h2">Knockout Bracket</h2>
+    <p class="screen-sub">Opens once the Round of 32 matchups are set</p>
+  </div>
+  <div style="padding:48px 24px;text-align:center;">
+    <div style="font-size:52px;margin-bottom:20px">🔒</div>
+    <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--ink);margin-bottom:10px">Bracket Opens June 28</div>
+    <div style="font-size:14px;color:var(--muted);max-width:280px;margin:0 auto 24px;line-height:1.6">FIFA finalises all 16 Round of 32 matchups after the group stage ends June 27. We'll open the bracket picking immediately after.</div>
+    ${cd?`<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);display:inline-flex;flex-direction:column;align-items:center;padding:18px 32px;gap:4px;">
+      <div style="font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:var(--ink);line-height:1">${cd}</div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)">until bracket opens</div>
+    </div>`:''}
+    <div style="margin-top:32px;padding:16px;background:var(--green-light);border:1px solid #bbf7d0;border-radius:var(--rs);font-size:13px;color:var(--green);font-weight:500;max-width:320px;margin-left:auto;margin-right:auto;">
+      ✓ Finish your <strong>Groups</strong> and <strong>Wildcards</strong> picks while you wait
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn-secondary" style="width:auto;padding:10px 20px" onclick="nav('groups')">← Groups</button>
+      <button class="btn-secondary" style="width:auto;padding:10px 20px" onclick="nav('wildcards')">Wildcards →</button>
+    </div>
+  </div>
+</div>`;}
+
   const picks=S.myPicks||emptyPicks();
   const locked=isLocked();
   const b=picks.bracket||{r32:Array(16).fill(null),r16:Array(8).fill(null),qf:Array(4).fill(null),sf:Array(2).fill(null),champion:null};
@@ -964,7 +1055,7 @@ function rBracket(){
 ${rNav('bracket')}
 <div class="screen">
   <div class="screen-hero">
-    <div class="screen-eyebrow">Stage Three</div>
+    <div class="screen-eyebrow">Phase 3 · Bracket</div>
     <h2 class="screen-h2">Knockout Bracket</h2>
     <p class="screen-sub">Tap a team to advance them — scroll right to see all rounds</p>
     ${locked?`<div class="locked-pill">${ICONS.lock} Predictions are locked</div>`:''}
@@ -1135,6 +1226,8 @@ ${rNav('leaderboard')}
     </div>
 
     <div style="margin:16px 0 12px;padding-top:14px;border-top:1px solid var(--border)">
+      <label class="check-label"><input type="checkbox" id="i-bracket-open" ${S.allData?.bracketOpen?'checked':''}>
+        🏆 Open Phase 3 bracket picking early (before June 28)</label>
       <label class="check-label"><input type="checkbox" id="i-lock" ${S.allData?.adminLocked?'checked':''}>
         🔒 Lock all predictions (prevents further changes)</label>
     </div>
@@ -1354,10 +1447,11 @@ async function doSaveResults(){
   });
   const wildcards=[...document.querySelectorAll('.res-wc:checked')].map(cb=>cb.dataset.t);
   const locked=document.getElementById('i-lock')?.checked;
+  const bracketOpen=document.getElementById('i-bracket-open')?.checked;
   S.saving=true;render();
   try{
     const data=await fetchGist();
-    data.results={groups,wildcards};data.adminLocked=locked;
+    data.results={groups,wildcards};data.adminLocked=locked;data.bracketOpen=bracketOpen;
     await writeGist(data);S.allData=data;toast('Results saved!');
   }catch(e){showErr(e.message);}
   S.saving=false;render();
