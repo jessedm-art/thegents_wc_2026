@@ -510,7 +510,7 @@ function scoreUser(picks,results){
 }
 function shareUrl(){
   const base=location.origin+location.pathname;
-  return `${base}#gist=${S.gistId}${S.token?`&key=${S.token}`:''}`;
+  return `${base}#gist=${S.gistId}`;
 }
 
 /* ══════════════════════════════════════════
