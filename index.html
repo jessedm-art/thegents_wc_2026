@@ -484,13 +484,14 @@ function bracketCountdown(){
 /* ══════════════════════════════════════════
    SHARED CONFIG (pre-loaded for all users)
 ══════════════════════════════════════════ */
-const SHARED_GIST='44e5045f48e01f55006039f5fa3357ac';
+const JSONBIN_ID='6a3ab582da38895dfef2aa6e';
+const JSONBIN_KEY='$2a$10$WZKAy0jiGiK8hH1HIkp4E.aMCAa9Lv8vslhByjWsbsePgk27aXYLS';
 const SHARED_TOKEN=''; // Token is entered by admin in Settings — never hardcoded
 
 /* ══════════════════════════════════════════
    STATE
 ══════════════════════════════════════════ */
-const S={screen:'setup',gistId:SHARED_GIST,token:null,username:null,isAdmin:false,apiKey:null,
+const S={screen:'setup',username:null,isAdmin:false,apiKey:null,
   allData:null,myPicks:null,saving:false,error:null,
   picksTab:'groups',bracketRound:'r32',viewingUser:null};
 
@@ -503,52 +504,28 @@ function emptyPicks(){
 /* ══════════════════════════════════════════
    GITHUB GIST
 ══════════════════════════════════════════ */
-async function fetchGist(){
-  // Public gist — no auth header needed (and avoids 401 from stale tokens)
-  const r=await fetch(`https://api.github.com/gists/${S.gistId}`);
-  if(!r.ok)throw new Error(`GitHub ${r.status}`);
-  const g=await r.json();
-  // Try wc2026.json first, fall back to first file in gist
-  const file=g.files['wc2026.json']||Object.values(g.files)[0];
-  if(!file)throw new Error('Gist is empty');
-  return JSON.parse(file.content);
-}
-async function writeGist(data){
-  const r=await fetch(`https://api.github.com/gists/${S.gistId}`,{
-    method:'PATCH',
-    headers:{Authorization:`token ${S.token}`,'Content-Type':'application/json'},
-    body:JSON.stringify({files:{'wc2026.json':{content:JSON.stringify(data,null,2)}}}),
+async function fetchData(){
+  const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
+    headers:{'X-Master-Key':JSONBIN_KEY}
   });
-  if(!r.ok){
-    if(r.status===401)throw new Error('Token expired or invalid (401). Open Settings ⚙ and enter a fresh GitHub token.');
-    throw new Error(`Save failed ${r.status}`);
-  }
+  if(!r.ok)throw new Error(`Load failed ${r.status}`);
+  return(await r.json()).record;
 }
-async function createGist(){
-  const init={users:{},results:{},adminLocked:false,created:new Date().toISOString(),sharedToken:S.token};
-  const r=await fetch('https://api.github.com/gists',{
-    method:'POST',
-    headers:{Authorization:`token ${S.token}`,'Content-Type':'application/json'},
-    body:JSON.stringify({description:'WC 2026 Bracket',public:false,
-      files:{'wc2026.json':{content:JSON.stringify(init,null,2)}}}),
+async function writeData(data){
+  const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
+    method:'PUT',
+    headers:{'X-Master-Key':JSONBIN_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify(data)
   });
-  if(!r.ok)throw new Error(`Create gist failed ${r.status}`);
-  return(await r.json()).id;
+  if(!r.ok)throw new Error(`Save failed ${r.status}`);
 }
 async function savePicks(){
   S.saving=true;render();
   try{
-    const data=await fetchGist();
-    // Always try to get write token from gist (handles fresh sessions, cleared localStorage, private browsing)
-    if(!S.token&&data.sharedToken){S.token=data.sharedToken;saveLocal();}
-    if(!S.token){
-      showErr(S.isAdmin?'Open Settings → enter your GitHub token.':'Admin needs to save once first to enable shared writes.');
-      S.saving=false;render();return;
-    }
+    const data=await fetchData();
     data.users=data.users||{};
-    if(S.isAdmin)data.sharedToken=S.token; // keep token fresh in gist
     data.users[S.username]={...S.myPicks,username:S.username,savedAt:new Date().toISOString()};
-    await writeGist(data);S.allData=data;
+    await writeData(data);S.allData=data;
     const labels={groups:'Group picks saved!',wildcards:'Wildcard picks saved!',bracket:'Bracket saved!'};
     showSaved(labels[S.screen]||'Picks saved!','Your selections are locked in.');
   }catch(e){showErr(e.message);}
@@ -560,16 +537,13 @@ async function savePicks(){
 ══════════════════════════════════════════ */
 function loadLocal(){
   try{const c=JSON.parse(localStorage.getItem('wc26')||'{}');
-    S.gistId=c.gistId||SHARED_GIST;
-    if(c.token)S.token=c.token;  // user's GitHub token — stored locally only, never sent to gist
-    if(c.username)S.username=c.username;if(c.isAdmin)S.isAdmin=c.isAdmin;
-    if(c.apiKey)S.apiKey=c.apiKey;}catch(e){}
-  try{const h={};location.hash.slice(1).split('&').forEach(p=>{
-    const[k,v]=p.split('=');if(k)h[k]=decodeURIComponent(v||'');});
-    if(h.gist)S.gistId=h.gist;}catch(e){}  // never read token from URL
+    if(c.username)S.username=c.username;
+    if(c.isAdmin)S.isAdmin=c.isAdmin;
+    if(c.apiKey)S.apiKey=c.apiKey;
+  }catch(e){}
 }
 function saveLocal(){
-  localStorage.setItem('wc26',JSON.stringify({gistId:S.gistId,token:S.token,username:S.username,isAdmin:S.isAdmin,apiKey:S.apiKey}));
+  localStorage.setItem('wc26',JSON.stringify({username:S.username,isAdmin:S.isAdmin,apiKey:S.apiKey}));
 }
 
 /* ══════════════════════════════════════════
@@ -582,8 +556,7 @@ const nav=sc=>{
 };
 async function refreshAllData(){
   try{
-    const data=await fetchGist();
-    if(!S.token&&data.sharedToken){S.token=data.sharedToken;saveLocal();}
+    const data=await fetchData();
     S.allData=data;
     S.myPicks=data.users?.[S.username]||S.myPicks;
     render();
@@ -677,8 +650,7 @@ function scoreUser(picks,results){
   return sc;
 }
 function shareUrl(){
-  const base=location.origin+location.pathname;
-  return `${base}#gist=${S.gistId}`;
+  return location.origin+location.pathname;
 }
 
 /* ══════════════════════════════════════════
@@ -763,35 +735,29 @@ function rSetup(){return`
     <label class="check-label" style="${new URLSearchParams(location.search).has('admin')||S.isAdmin?'':'display:none'}"><input type="checkbox" id="i-admin"${S.isAdmin?' checked':''} onchange="document.getElementById('f-apikey').style.display=this.checked?'block':'none'"> I'm the admin (enter results &amp; lock picks)</label>
     <div id="f-apikey" style="margin-top:12px;${S.isAdmin?'':'display:none'}">
       <div class="field">
-        <label>GitHub Token <span class="badge-sm">admin only</span></label>
-        <input id="i-token" type="password" placeholder="ghp_…" value="${S.token||''}">
-        <span class="hint-text"><a href="https://github.com/settings/tokens/new?scopes=gist&description=WC2026+Bracket" target="_blank" style="color:var(--ink);font-weight:600">Get a free token →</a> · Stored locally · shared with participants via gist</span>
-      </div>
-      <div class="field">
         <label>football-data.org API Key <span class="badge-sm">admin only</span></label>
         <input id="i-apikey" type="password" placeholder="Your free API key" value="${S.apiKey||''}">
-        <span class="hint-text"><a href="https://www.football-data.org/client/register" target="_blank" style="color:var(--ink);font-weight:600">Get a free key →</a> · Stored locally</span>
+        <span class="hint-text"><a href="https://www.football-data.org/client/register" target="_blank" style="color:var(--ink);font-weight:600">Get a free key →</a> · Stored locally · used to auto-fetch live results</span>
       </div>
     </div>
     <button class="btn-primary" id="b-setup">${S.saving?'Loading…':'Let\'s Go →'}</button>
   </div>
 
-  ${S.gistId?`
   <div class="card">
     <div class="card-title">Share Link</div>
-    <p class="hint-text">Send this to friends — they open it, enter their name, and start picking.</p>
+    <p class="hint-text">Send this to your crew — they open it, enter their name, and start picking.</p>
     <div class="share-box">
       <span style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em">Bracket Link</span>
       <code id="share-url">${shareUrl()}</code>
       <button class="btn-copy" id="b-copy">Copy Link</button>
     </div>
-  </div>`:''}
+  </div>
 
   <div class="card">
     <div class="card-title">How to Play</div>
     <ul class="info-list">
-      <li>Admin creates the bracket with a GitHub token (free)</li>
-      <li>Share the link — friends enter their name to join</li>
+      <li>Enter your name and start picking — no sign-up needed</li>
+      <li>Share the link with your crew so everyone can join</li>
       <li><strong>Phase 1 (now):</strong> Pick 2 teams to advance from each of 12 groups</li>
       <li><strong>Phase 2 (now):</strong> Pick the 8 best 3rd-place wildcard teams</li>
       <li><strong>Phase 3 (Jun 28):</strong> Full knockout bracket opens once matchups are set</li>
@@ -1703,33 +1669,15 @@ function bindEvents(){
 /* ── Actions ── */
 async function doSetup(){
   const name=(document.getElementById('i-name')?.value||'').trim();
-  const gistId=(document.getElementById('i-gist')?.value||'').trim();
   const admin=document.getElementById('i-admin')?.checked;
   const apiKey=(document.getElementById('i-apikey')?.value||'').trim();
-  const token=(document.getElementById('i-token')?.value||'').trim();
   if(!name){showErr('Please enter your name');return;}
   S.username=name;S.isAdmin=admin;
-  if(token)S.token=token;  // admin only — non-admins get sharedToken from gist
   if(apiKey)S.apiKey=apiKey;
-  if(!gistId&&!S.gistId){
-    if(!S.token){showErr('A GitHub token is required to create storage');return;}
-    S.saving=true;render();
-    try{S.gistId=await createGist();toast('Created shared storage!');}
-    catch(e){showErr(e.message);S.saving=false;render();return;}
-    S.saving=false;
-  }else if(gistId){S.gistId=gistId;}
   saveLocal();S.saving=true;render();
   try{
-    S.allData=await fetchGist();
-    // Non-admins bootstrap their write token from the gist's sharedToken field
-    if(S.allData.sharedToken&&!S.token){S.token=S.allData.sharedToken;saveLocal();}
+    S.allData=await fetchData();
     S.myPicks=S.allData.users?.[S.username]||emptyPicks();
-    // Admin: immediately write sharedToken to gist so participants can save right away.
-    // This also validates the token — if it's wrong/expired we catch it here, not during pick saves.
-    if(S.isAdmin&&S.token){
-      S.allData.sharedToken=S.token;
-      await writeGist(S.allData);
-    }
   }catch(e){showErr('Could not load: '+e.message);S.saving=false;render();return;}
   S.saving=false;nav('home');
 }
@@ -1889,17 +1837,17 @@ async function fetchLiveResults(){
       if(fm){const w=fm.score?.winner;champion=w==='HOME_TEAM'?normTeam(fm.homeTeam?.name):w==='AWAY_TEAM'?normTeam(fm.awayTeam?.name):null;}
     }
 
-    /* 5 — Save to Gist */
-    const data=await fetchGist();
+    /* 5 — Save */
+    const data=await fetchData();
     data.results={groups,wildcards,bracket:{...bracket,champion},lastFetched:Date.now()};
-    await writeGist(data);S.allData=data;
+    await writeData(data);S.allData=data;
     toast('Results updated!');
   }catch(e){showErr('Live fetch failed: '+e.message);}
   S.saving=false;render();
 }
 
 async function doSaveResults(){
-  if(!S.isAdmin||!S.token)return;
+  if(!S.isAdmin)return;
   const groups={};
   document.querySelectorAll('.res-g:checked').forEach(cb=>{
     const g=cb.dataset.g,t=cb.dataset.t;
@@ -1910,9 +1858,9 @@ async function doSaveResults(){
   const bracketOpen=document.getElementById('i-bracket-open')?.checked;
   S.saving=true;render();
   try{
-    const data=await fetchGist();
+    const data=await fetchData();
     data.results={groups,wildcards};data.adminLocked=locked;data.bracketOpen=bracketOpen;
-    await writeGist(data);S.allData=data;toast('Results saved!');
+    await writeData(data);S.allData=data;toast('Results saved!');
   }catch(e){showErr(e.message);}
   S.saving=false;render();
 }
@@ -1932,11 +1880,9 @@ window.fetchLiveResults=fetchLiveResults;window.viewUser=viewUser;
 ══════════════════════════════════════════ */
 async function init(){
   loadLocal();
-  if(S.gistId&&S.username){
+  if(S.username){
     try{
-      S.allData=await fetchGist();
-      // Bootstrap write token from gist if we don't have one locally
-      if(S.allData.sharedToken&&!S.token){S.token=S.allData.sharedToken;saveLocal();}
+      S.allData=await fetchData();
       S.myPicks=S.allData.users?.[S.username]||emptyPicks();
       nav('home');return;
     }catch(e){}
