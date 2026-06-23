@@ -1299,7 +1299,10 @@ const LB_CPS=['Start','A–D','E–H','I–L','Wild','R32','R16','QF','SF','Fina
 function rLeaderboard(){
   const users=Object.values(S.allData?.users||{});
   const results=S.allData?.results||{};
-  const ranked=[...users].map(u=>({u,sc:scoreUser(u,results),p:completion(u)})).sort((a,b)=>b.sc-a.sc||b.p-a.p);
+  // Tiebreaker helpers
+  const groupHits=u=>{const a=results.groups||{};return GROUPS.reduce((n,g)=>n+((u.groups||{})[g.id]||[]).filter(t=>(a[g.id]||[]).includes(t)).length,0);};
+  const wcHits=u=>{const a=results.wildcards||[];return(u.wildcards||[]).filter(t=>a.includes(t)).length;};
+  const ranked=[...users].map(u=>({u,sc:scoreUser(u,results),p:completion(u),gh:groupHits(u),wh:wcHits(u)})).sort((a,b)=>b.sc-a.sc||b.gh-a.gh||b.wh-a.wh||b.p-a.p);
   const top3=ranked.slice(0,3);
   const rest=ranked.slice(3);
 
