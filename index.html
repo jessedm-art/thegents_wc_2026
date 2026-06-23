@@ -519,7 +519,10 @@ async function writeGist(data){
     headers:{Authorization:`token ${S.token}`,'Content-Type':'application/json'},
     body:JSON.stringify({files:{'wc2026.json':{content:JSON.stringify(data,null,2)}}}),
   });
-  if(!r.ok)throw new Error(`Save failed ${r.status}`);
+  if(!r.ok){
+    if(r.status===401)throw new Error('Token expired or invalid (401). Open Settings ⚙ and enter a fresh GitHub token.');
+    throw new Error(`Save failed ${r.status}`);
+  }
 }
 async function createGist(){
   const init={users:{},results:{},adminLocked:false,created:new Date().toISOString(),sharedToken:S.token};
@@ -1721,6 +1724,12 @@ async function doSetup(){
     // Non-admins bootstrap their write token from the gist's sharedToken field
     if(S.allData.sharedToken&&!S.token){S.token=S.allData.sharedToken;saveLocal();}
     S.myPicks=S.allData.users?.[S.username]||emptyPicks();
+    // Admin: immediately write sharedToken to gist so participants can save right away.
+    // This also validates the token — if it's wrong/expired we catch it here, not during pick saves.
+    if(S.isAdmin&&S.token){
+      S.allData.sharedToken=S.token;
+      await writeGist(S.allData);
+    }
   }catch(e){showErr('Could not load: '+e.message);S.saving=false;render();return;}
   S.saving=false;nav('home');
 }
