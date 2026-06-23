@@ -101,6 +101,18 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 /* ── Toast / Error ── */
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-weight:600;padding:10px 22px;border-radius:50px;z-index:9999;font-size:13px;animation:fadeUp 2.5s ease forwards;white-space:nowrap;}
 @keyframes fadeUp{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}80%{opacity:1}100%{opacity:0}}
+/* ── Save Success Overlay ── */
+.save-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;animation:soFadeIn .18s ease forwards;}
+.save-overlay.out{animation:soFadeOut .3s ease forwards;}
+.save-card{background:var(--surface);border-radius:16px;padding:32px 40px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.22);animation:soPop .22s cubic-bezier(.34,1.56,.64,1) forwards;}
+.save-check{width:56px;height:56px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;animation:soCheck .3s ease .1s both;}
+.save-check svg{width:28px;height:28px;stroke:#fff;stroke-width:2.5;fill:none;}
+.save-card-title{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+.save-card-sub{font-size:13px;color:var(--muted);}
+@keyframes soFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes soFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes soPop{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
+@keyframes soCheck{from{transform:scale(0)}to{transform:scale(1)}}
 .error-banner{background:var(--red-light);border-bottom:1px solid #fecaca;color:var(--red);padding:10px 16px;font-size:13px;text-align:center;font-weight:500;}
 .locked-pill{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border2);color:var(--muted);padding:4px 12px;border-radius:50px;font-size:11px;font-weight:600;margin-top:8px;}
 
@@ -472,7 +484,7 @@ const S={screen:'setup',gistId:SHARED_GIST,token:null,username:null,isAdmin:fals
 function emptyPicks(){
   return{groups:{},wildcards:[],
     bracket:{r32:Array(16).fill(null),r16:Array(8).fill(null),qf:Array(4).fill(null),sf:Array(2).fill(null),champion:null},
-    locked:false,shout:''};
+    locked:false};
 }
 
 /* ══════════════════════════════════════════
@@ -508,28 +520,24 @@ async function createGist(){
   return(await r.json()).id;
 }
 async function savePicks(){
-  if(!S.token){showErr('No write token yet — ask the admin to save once so the shared token propagates.');return;}
-  S.saving=true;render();
-  try{
-    const data=await fetchGist();
-    data.users=data.users||{};
-    if(S.isAdmin&&S.token)data.sharedToken=S.token; // keep sharedToken fresh
-    data.users[S.username]={...S.myPicks,username:S.username,savedAt:new Date().toISOString()};
-    await writeGist(data);S.allData=data;toast('Saved ✓');
-  }catch(e){showErr(e.message);}
-  S.saving=false;render();
-}
-async function saveShout(){
-  if(!S.token){showErr('No write token — ask the admin to set up the bracket first.');return;}
-  const txt=(document.getElementById('shout-input')?.value||'').trim().slice(0,120);
-  S.myPicks.shout=txt;
+  // If we have no token, try to pull sharedToken from the gist one more time
+  if(!S.token){
+    try{
+      const d=await fetchGist();
+      if(d.sharedToken){S.token=d.sharedToken;saveLocal();}
+    }catch(_){}
+  }
+  if(!S.token){showErr(S.isAdmin?'Open Settings → enter your GitHub token.':'Contact the admin — shared token not set up yet.');return;}
   S.saving=true;render();
   try{
     const data=await fetchGist();
     data.users=data.users||{};
     if(S.isAdmin&&S.token)data.sharedToken=S.token;
-    data.users[S.username]={...(data.users[S.username]||{}), ...S.myPicks,username:S.username,savedAt:new Date().toISOString()};
-    await writeGist(data);S.allData=data;toast(txt?'Shout posted ✓':'Shout cleared');
+    data.users[S.username]={...S.myPicks,username:S.username,savedAt:new Date().toISOString()};
+    await writeGist(data);S.allData=data;
+    const screen=S.screen;
+    const labels={groups:'Group picks saved!',wildcards:'Wildcard picks saved!',bracket:'Bracket saved!'};
+    showSaved(labels[screen]||'Picks saved!','Your selections are locked in.');
   }catch(e){showErr(e.message);}
   S.saving=false;render();
 }
@@ -561,6 +569,23 @@ function toast(msg){
   document.querySelectorAll('.toast').forEach(e=>e.remove());
   const t=document.createElement('div');t.className='toast';t.textContent=msg;
   document.body.appendChild(t);setTimeout(()=>t.remove(),2600);
+}
+function showSaved(title='Picks saved!',sub='Your selections are locked in.'){
+  document.querySelectorAll('.save-overlay').forEach(e=>e.remove());
+  const el=document.createElement('div');el.className='save-overlay';
+  el.innerHTML=`<div class="save-card">
+    <div class="save-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+    <div class="save-card-title">${title}</div>
+    <div class="save-card-sub">${sub}</div>
+  </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click',()=>dismissSaved(el));
+  setTimeout(()=>dismissSaved(el),2200);
+}
+function dismissSaved(el){
+  if(!el||!el.parentNode)return;
+  el.classList.add('out');
+  setTimeout(()=>el.remove(),320);
 }
 function showErr(msg){S.error=msg;render();setTimeout(()=>{S.error=null;render();},5000);}
 function isLocked(){return!!(S.myPicks?.locked||S.allData?.adminLocked);}
@@ -768,18 +793,6 @@ ${rNav('home')}
     <span style="font-size:15px">📅</span>
     <span><strong>Phase 3 bracket opens June 28</strong> — wildcards confirmed after group stage ends Jun 27${bracketCountdown()?` · ${bracketCountdown()} away`:''}</span>
   </div>`:''}
-
-  <div style="margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;">
-    <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;letter-spacing:.04em;text-transform:uppercase">📣 Your Shout</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="shout-input" type="text" maxlength="120" placeholder="Trash talk, predictions, vibes…"
-        value="${(S.myPicks?.shout||'').replace(/"/g,'&quot;')}"
-        style="flex:1;border:1px solid var(--border2);border-radius:var(--rs);padding:7px 10px;font-size:13px;background:var(--bg2);color:var(--ink);outline:none;font-family:inherit"
-        onkeydown="if(event.key==='Enter')saveShout()">
-      <button onclick="saveShout()" style="padding:7px 14px;background:var(--ink);color:#fff;border:none;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">${S.saving?'…':'Post'}</button>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:5px">Shows under your name on the leaderboard · max 120 chars</div>
-  </div>
 
   <div class="quick-grid">
     <button class="qcard" onclick="nav('groups')">
@@ -1216,7 +1229,6 @@ ${rNav('leaderboard')}
         <div class="lb-name">${u.username}${u.username===S.username?`<span class="you-badge" style="margin-left:6px">you</span>`:''}
           <div class="lb-title">${rankTitle(i+1)}</div>
           <div class="lb-pct">${p}% complete</div>
-          ${u.shout?`<div style="font-size:11px;color:var(--muted);margin-top:3px;font-style:italic;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${u.shout.replace(/"/g,'&quot;')}">💬 ${u.shout}</div>`:''}
         </div>
         <div class="lb-score-col">
           <div class="lb-score">${sc}</div>
@@ -1232,7 +1244,6 @@ ${rNav('leaderboard')}
         <div class="lb-name-sm">${u.username}${u.username===S.username?' (you)':''}
           <div class="lb-title">${rankTitle(i+4)}</div>
           <div class="lb-pct">${p}% complete</div>
-          ${u.shout?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px" title="${u.shout.replace(/"/g,'&quot;')}">💬 ${u.shout}</div>`:''}
         </div>
         <div class="lb-score-col"><div class="lb-score-sm">${sc}</div><div class="lb-pts-sm">pts</div></div>
       </div>`).join('')}
@@ -1759,7 +1770,7 @@ async function doSaveResults(){
 ══════════════════════════════════════════ */
 window.nav=nav;window.toggleGroup=toggleGroup;window.toggleWC=toggleWC;
 window.pickB=pickB;window.switchTab=switchTab;window.setBracketRound=setBracketRound;
-window.fetchLiveResults=fetchLiveResults;window.saveShout=saveShout;
+window.fetchLiveResults=fetchLiveResults;
 
 /* ══════════════════════════════════════════
    INIT
@@ -1767,8 +1778,13 @@ window.fetchLiveResults=fetchLiveResults;window.saveShout=saveShout;
 async function init(){
   loadLocal();
   if(S.gistId&&S.username){
-    try{S.allData=await fetchGist();S.myPicks=S.allData.users?.[S.username]||emptyPicks();nav('home');return;}
-    catch(e){}
+    try{
+      S.allData=await fetchGist();
+      // Bootstrap write token from gist if we don't have one locally
+      if(S.allData.sharedToken&&!S.token){S.token=S.allData.sharedToken;saveLocal();}
+      S.myPicks=S.allData.users?.[S.username]||emptyPicks();
+      nav('home');return;
+    }catch(e){}
   }
   nav('setup');
 }
