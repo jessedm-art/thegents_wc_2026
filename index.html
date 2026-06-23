@@ -114,6 +114,19 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 @keyframes soPop{from{opacity:0;transform:scale(.88)}to{opacity:1;transform:scale(1)}}
 @keyframes soCheck{from{transform:scale(0)}to{transform:scale(1)}}
 .error-banner{background:var(--red-light);border-bottom:1px solid #fecaca;color:var(--red);padding:10px 16px;font-size:13px;text-align:center;font-weight:500;}
+.err-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;animation:soFadeIn .18s ease forwards;}
+.err-overlay.out{animation:soFadeOut .3s ease forwards;}
+.err-card{background:var(--surface);border-radius:16px;padding:28px 32px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.22);max-width:300px;animation:soPop .22s cubic-bezier(.34,1.56,.64,1) forwards;}
+.err-icon{width:48px;height:48px;border-radius:50%;background:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.err-icon svg{width:24px;height:24px;stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.err-card-title{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+.err-card-sub{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
+.err-dismiss{background:var(--ink);color:var(--bg);border:none;border-radius:8px;padding:8px 24px;font-size:14px;font-weight:600;cursor:pointer;}
+.uavatar-me{background:var(--green)!important;}
+.uname-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.group-picks-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);}
+.group-picks-row .picks-group-label{width:48px;flex-shrink:0;}
+.back-btn{background:none;border:none;color:var(--ink);font-size:22px;cursor:pointer;padding:0;line-height:1;display:flex;align-items:center;}
 .locked-pill{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--border2);color:var(--muted);padding:4px 12px;border-radius:50px;font-size:11px;font-weight:600;margin-top:8px;}
 
 /* ════════════════════════════════════
@@ -479,7 +492,7 @@ const SHARED_TOKEN=''; // Token is entered by admin in Settings — never hardco
 ══════════════════════════════════════════ */
 const S={screen:'setup',gistId:SHARED_GIST,token:null,username:null,isAdmin:false,apiKey:null,
   allData:null,myPicks:null,saving:false,error:null,
-  picksTab:'groups',bracketRound:'r32'};
+  picksTab:'groups',bracketRound:'r32',viewingUser:null};
 
 function emptyPicks(){
   return{groups:{},wildcards:[],
@@ -520,24 +533,21 @@ async function createGist(){
   return(await r.json()).id;
 }
 async function savePicks(){
-  // If we have no token, try to pull sharedToken from the gist one more time
-  if(!S.token){
-    try{
-      const d=await fetchGist();
-      if(d.sharedToken){S.token=d.sharedToken;saveLocal();}
-    }catch(_){}
-  }
-  if(!S.token){showErr(S.isAdmin?'Open Settings → enter your GitHub token.':'Contact the admin — shared token not set up yet.');return;}
   S.saving=true;render();
   try{
     const data=await fetchGist();
+    // Always try to get write token from gist (handles fresh sessions, cleared localStorage, private browsing)
+    if(!S.token&&data.sharedToken){S.token=data.sharedToken;saveLocal();}
+    if(!S.token){
+      showErr(S.isAdmin?'Open Settings → enter your GitHub token.':'Admin needs to save once first to enable shared writes.');
+      S.saving=false;render();return;
+    }
     data.users=data.users||{};
-    if(S.isAdmin&&S.token)data.sharedToken=S.token;
+    if(S.isAdmin)data.sharedToken=S.token; // keep token fresh in gist
     data.users[S.username]={...S.myPicks,username:S.username,savedAt:new Date().toISOString()};
     await writeGist(data);S.allData=data;
-    const screen=S.screen;
     const labels={groups:'Group picks saved!',wildcards:'Wildcard picks saved!',bracket:'Bracket saved!'};
-    showSaved(labels[screen]||'Picks saved!','Your selections are locked in.');
+    showSaved(labels[S.screen]||'Picks saved!','Your selections are locked in.');
   }catch(e){showErr(e.message);}
   S.saving=false;render();
 }
@@ -562,7 +572,27 @@ function saveLocal(){
 /* ══════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════ */
-const nav=sc=>{S.screen=sc;render();window.scrollTo(0,0);};
+const nav=sc=>{
+  if(sc!=='allpicks')S.viewingUser=null;
+  S.screen=sc;render();window.scrollTo(0,0);
+  if(sc==='allpicks')refreshAllData();
+};
+async function refreshAllData(){
+  try{
+    const data=await fetchGist();
+    if(!S.token&&data.sharedToken){S.token=data.sharedToken;saveLocal();}
+    S.allData=data;
+    S.myPicks=data.users?.[S.username]||S.myPicks;
+    render();
+  }catch(e){}
+}
+function viewUser(username){
+  S.viewingUser=username;
+  S.picksTab='groups';
+  S.screen='allpicks';
+  render();
+  window.scrollTo(0,0);
+}
 const f=t=>FLAGS[t]||'🏳️';
 const sh=t=>SHORT[t]||t;
 function toast(msg){
@@ -587,7 +617,24 @@ function dismissSaved(el){
   el.classList.add('out');
   setTimeout(()=>el.remove(),320);
 }
-function showErr(msg){S.error=msg;render();setTimeout(()=>{S.error=null;render();},5000);}
+function showErr(msg){
+  document.querySelectorAll('.err-overlay').forEach(e=>e.remove());
+  const el=document.createElement('div');el.className='err-overlay';
+  el.innerHTML=`<div class="err-card">
+    <div class="err-icon"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+    <div class="err-card-title">Something went wrong</div>
+    <div class="err-card-sub">${msg}</div>
+    <button class="err-dismiss">OK</button>
+  </div>`;
+  document.body.appendChild(el);
+  el.querySelector('.err-dismiss').addEventListener('click',()=>dismissErr(el));
+  setTimeout(()=>dismissErr(el),10000);
+}
+function dismissErr(el){
+  if(!el||!el.parentNode)return;
+  el.classList.add('out');
+  setTimeout(()=>el.remove(),320);
+}
 function isLocked(){return!!(S.myPicks?.locked||S.allData?.adminLocked);}
 
 function slotTeam(slot,picks){
@@ -653,8 +700,7 @@ const ICONS={
    RENDER
 ══════════════════════════════════════════ */
 function render(){
-  document.getElementById('app').innerHTML=
-    (S.error?`<div class="error-banner">${S.error}</div>`:'')+renderScreen();
+  document.getElementById('app').innerHTML=renderScreen();
   bindEvents();
 }
 function renderScreen(){
@@ -818,8 +864,8 @@ ${rNav('home')}
     const sc=scoreUser(u,S.allData?.results||{});
     const p=completion(u);
     return`
-    <div class="user-card${u.username===S.username?' is-me':''}" onclick="nav('allpicks')">
-      <div class="uavatar">${u.username[0].toUpperCase()}</div>
+    <div class="user-card${u.username===S.username?' is-me':''}" onclick="viewUser('${u.username}')">
+      <div class="uavatar${u.username===S.username?' uavatar-me':''}">${u.username[0].toUpperCase()}</div>
       <div class="uinfo">
         <div class="uname">${u.username}${u.username===S.username?`<span class="you-badge">you</span>`:''}</div>
         <div class="uprogress"><div class="uprogress-fill" style="width:${p}%"></div></div>
@@ -1119,22 +1165,115 @@ ${rNav('bracket')}
 
 /* ── ALL PICKS ────────────────────────── */
 function rAllPicks(){
-  const users=Object.values(S.allData?.users||{});
-  return`
-${rNav('allpicks')}
+  const mySaved=S.allData?.users?.[S.username];
+  // Privacy gate: must submit your own picks first
+  if(!mySaved){
+    return`${rNav('allpicks')}
 <div class="screen">
   <div class="screen-hero">
-    <div class="screen-eyebrow">Compare</div>
-    <h2 class="screen-h2">All Predictions</h2>
+    <div class="screen-eyebrow">Participants</div>
+    <h2 class="screen-h2">All Picks</h2>
+  </div>
+  <div style="padding:48px 24px;text-align:center">
+    <div style="font-size:48px;margin-bottom:16px">🔒</div>
+    <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:8px">Submit your picks first</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.6;max-width:260px;margin:0 auto">Save at least your group picks to unlock everyone else's predictions.</div>
+    <button class="btn-primary" style="margin-top:24px" onclick="nav('groups')">Make Picks →</button>
+  </div>
+</div>`;
+  }
+  // Per-user detail view
+  if(S.viewingUser){
+    const u=S.allData?.users?.[S.viewingUser];
+    if(u)return rUserPicksView(u);
+    S.viewingUser=null;
+  }
+  // Participant list
+  const users=Object.values(S.allData?.users||{});
+  return`${rNav('allpicks')}
+<div class="screen">
+  <div class="screen-hero">
+    <div class="screen-eyebrow">Participants</div>
+    <h2 class="screen-h2">All Picks</h2>
     <p class="screen-sub">${users.length} participant${users.length!==1?'s':''}</p>
   </div>
-  <div class="picks-tabs" style="padding-top:4px">
-    <button class="ptab${S.picksTab==='groups'?' active':''}" onclick="switchTab('groups')">Groups</button>
-    <button class="ptab${S.picksTab==='wildcards'?' active':''}" onclick="switchTab('wildcards')">Wildcards</button>
-    <button class="ptab${S.picksTab==='champions'?' active':''}" onclick="switchTab('champions')">Champions</button>
+  <div style="padding-bottom:80px">
+    ${!users.length?`<div class="no-data">No picks yet</div>`:
+    users.map(u=>{
+      const sc=scoreUser(u,S.allData?.results||{});
+      const p=completion(u);
+      const champ=u.bracket?.champion;
+      return`
+      <div class="user-card${u.username===S.username?' is-me':''}" onclick="viewUser('${u.username}')">
+        <div class="uavatar${u.username===S.username?' uavatar-me':''}">${u.username[0].toUpperCase()}</div>
+        <div class="uinfo">
+          <div class="uname">${u.username}${u.username===S.username?`<span class="you-badge">you</span>`:''}</div>
+          <div class="uname-sub">${champ?`⚽ ${champ}`:`${p}% complete`}</div>
+        </div>
+        <div class="lb-score-col">
+          <div class="uscore">${sc||p+'%'}</div>
+          <div class="uscore-pts">${sc?'pts':''}</div>
+        </div>
+      </div>`;
+    }).join('')}
   </div>
-  <div id="picks-body" style="padding-top:16px">${rPicksBody(S.picksTab,users)}</div>
 </div>`;}
+
+function rUserPicksView(u){
+  const isMe=u.username===S.username;
+  const tab=S.picksTab;
+  return`${rNav('allpicks')}
+<div class="screen">
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 0">
+    <button class="back-btn" onclick="S.viewingUser=null;render()">←</button>
+    <div class="uavatar${isMe?' uavatar-me':''}" style="width:40px;height:40px;font-size:16px">${u.username[0].toUpperCase()}</div>
+    <div>
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">${u.username}${isMe?' <span class="you-badge">you</span>':''}</div>
+      <div style="font-size:11px;color:var(--muted)">${completion(u)}% complete</div>
+    </div>
+  </div>
+  <div class="picks-tabs" style="margin-top:12px">
+    <button class="ptab${tab==='groups'?' active':''}" onclick="switchTab('groups')">Groups</button>
+    <button class="ptab${tab==='wildcards'?' active':''}" onclick="switchTab('wildcards')">Wildcards</button>
+    <button class="ptab${tab==='champions'?' active':''}" onclick="switchTab('champions')">Champion</button>
+  </div>
+  <div id="picks-body" style="padding-bottom:80px">${rUserPicksBody(tab,u)}</div>
+</div>`;}
+
+function rUserPicksBody(tab,u){
+  if(tab==='groups'){
+    return GROUPS.map(g=>{
+      const picks=(u.groups||{})[g.id]||[];
+      return`<div class="group-picks-row">
+        <div class="picks-group-label">Grp ${g.id}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${picks.length>=1?
+            picks.map(t=>`<div class="picks-team-pill"><span class="flag-sm">${f(t)}</span>${t}</div>`).join(''):
+            '<span style="color:var(--muted);font-size:12px">Not picked</span>'}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if(tab==='wildcards'){
+    const wcs=u.wildcards||[];
+    return`<div style="padding:16px">
+      ${wcs.length?`<div style="display:flex;flex-wrap:wrap;gap:8px">${wcs.map(t=>`<div class="picks-team-pill"><span class="flag-sm">${f(t)}</span>${t}</div>`).join('')}</div>`:
+        '<span style="color:var(--muted);font-size:13px">No wildcards picked yet</span>'}
+    </div>`;
+  }
+  if(tab==='champions'){
+    const champ=u.bracket?.champion;
+    return`<div style="padding:40px 24px;text-align:center">
+      ${champ?
+        `<div style="font-size:56px;margin-bottom:10px">${f(champ)}</div>
+         <div style="font-size:22px;font-weight:700;color:var(--ink)">${champ}</div>
+         <div style="font-size:12px;color:var(--muted);margin-top:6px">Predicted World Cup Champion</div>`:
+        `<div style="font-size:40px;margin-bottom:14px">🤷</div>
+         <div style="color:var(--muted);font-size:14px">No champion picked yet</div>`}
+    </div>`;
+  }
+  return'';
+}
 
 function rPicksBody(tab,users){
   if(!users.length)return`<div class="no-data">No predictions saved yet</div>`;
@@ -1641,13 +1780,20 @@ function pickB(key,mi,team){
 
 function switchTab(tab){
   S.picksTab=tab;
-  const users=Object.values(S.allData?.users||{});
   document.querySelectorAll('.ptab').forEach((t,i)=>{
     const tabs=['groups','wildcards','champions'];
     t.classList.toggle('active',tabs[i]===tab);
   });
   const body=document.getElementById('picks-body');
-  if(body)body.innerHTML=rPicksBody(tab,users);
+  if(body){
+    if(S.viewingUser){
+      const u=S.allData?.users?.[S.viewingUser];
+      body.innerHTML=u?rUserPicksBody(tab,u):'';
+    }else{
+      const users=Object.values(S.allData?.users||{});
+      body.innerHTML=rPicksBody(tab,users);
+    }
+  }
 }
 
 function setBracketRound(r){
@@ -1770,7 +1916,7 @@ async function doSaveResults(){
 ══════════════════════════════════════════ */
 window.nav=nav;window.toggleGroup=toggleGroup;window.toggleWC=toggleWC;
 window.pickB=pickB;window.switchTab=switchTab;window.setBracketRound=setBracketRound;
-window.fetchLiveResults=fetchLiveResults;
+window.fetchLiveResults=fetchLiveResults;window.viewUser=viewUser;
 
 /* ══════════════════════════════════════════
    INIT
