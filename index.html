@@ -486,6 +486,7 @@ function bracketCountdown(){
 ══════════════════════════════════════════ */
 const JSONBIN_ID='6a3ab582da38895dfef2aa6e';
 const JSONBIN_KEY='$2a$10$WZKAy0jiGiK8hH1HIkp4E.aMCAa9Lv8vslhByjWsbsePgk27aXYLS';
+const NTFY_TOPIC='thegents-wc2026-jd';  // subscribe to this topic in the ntfy app
 const SHARED_TOKEN=''; // Token is entered by admin in Settings — never hardcoded
 
 /* ══════════════════════════════════════════
@@ -527,7 +528,13 @@ async function savePicks(){
     data.users[S.username]={...S.myPicks,username:S.username,savedAt:new Date().toISOString()};
     await writeData(data);S.allData=data;
     const labels={groups:'Group picks saved!',wildcards:'Wildcard picks saved!',bracket:'Bracket saved!'};
-    showSaved(labels[S.screen]||'Picks saved!','Your selections are locked in.');
+    const label=labels[S.screen]||'Picks saved!';
+    showSaved(label,'Your selections are locked in.');
+    // Notify Jesse
+    fetch(`https://ntfy.sh/${NTFY_TOPIC}`,{method:'POST',
+      headers:{'Title':'🏆 WC2026 Bracket','Priority':'default','Content-Type':'text/plain'},
+      body:`${S.username} saved their ${S.screen} picks`
+    }).catch(()=>{});
   }catch(e){showErr(e.message);}
   S.saving=false;render();
 }
