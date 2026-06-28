@@ -435,25 +435,37 @@ const SHORT={
   'Saudi Arabia':'S. Arabia','Ivory Coast':'Iv. Coast','New Zealand':'N. Zealand',
   'Cape Verde':'C. Verde','DR Congo':'DR Congo',
 };
-// R32 matchups — fully hardcoded from official 2026 FIFA bracket (group stage complete)
-// All teams fixed so bracket never depends on admin picks data
+// R32 matchups — ordered to match the actual 2026 FIFA bracket tree
+// Pairs that feed the same R16 match are adjacent (slots 0&1→R16[0], 2&3→R16[1], etc.)
+// R16 pairings: M89=M74vM77, M90=M73vM75, M93=M83vM84, M94=M81vM82,
+//               M91=M76vM78, M92=M79vM80, M95=M86vM88, M96=M85vM87
+// QF: M97=M89vM90, M98=M93vM94, M99=M91vM92, M100=M95vM96
+// SF: M101=M97vM98, M102=M99vM100
 const R32_SLOTS=[
-  [{type:'fixed',team:'South Africa'},{type:'fixed',team:'Canada'}],       // M73
+  // → R16 M89 → QF M97 → SF M101
   [{type:'fixed',team:'Germany'},{type:'fixed',team:'Paraguay'}],          // M74
-  [{type:'fixed',team:'Netherlands'},{type:'fixed',team:'Morocco'}],       // M75
-  [{type:'fixed',team:'Brazil'},{type:'fixed',team:'Japan'}],              // M76
   [{type:'fixed',team:'France'},{type:'fixed',team:'Sweden'}],             // M77
-  [{type:'fixed',team:'Ivory Coast'},{type:'fixed',team:'Norway'}],        // M78
-  [{type:'fixed',team:'Mexico'},{type:'fixed',team:'Ecuador'}],            // M79
-  [{type:'fixed',team:'England'},{type:'fixed',team:'DR Congo'}],          // M80
+  // → R16 M90 → QF M97 → SF M101
+  [{type:'fixed',team:'South Africa'},{type:'fixed',team:'Canada'}],       // M73
+  [{type:'fixed',team:'Netherlands'},{type:'fixed',team:'Morocco'}],       // M75
+  // → R16 M93 → QF M98 → SF M101
+  [{type:'fixed',team:'Portugal'},{type:'fixed',team:'Croatia'}],          // M83
+  [{type:'fixed',team:'Spain'},{type:'fixed',team:'Austria'}],             // M84
+  // → R16 M94 → QF M98 → SF M101
   [{type:'fixed',team:'USA'},{type:'fixed',team:'Bosnia & Herz.'}],        // M81
   [{type:'fixed',team:'Belgium'},{type:'fixed',team:'Senegal'}],           // M82
-  [{type:'fixed',team:'Colombia'},{type:'fixed',team:'Ghana'}],            // M83
-  [{type:'fixed',team:'Spain'},{type:'fixed',team:'Austria'}],             // M84
-  [{type:'fixed',team:'Switzerland'},{type:'fixed',team:'Algeria'}],       // M85
+  // → R16 M91 → QF M99 → SF M102
+  [{type:'fixed',team:'Brazil'},{type:'fixed',team:'Japan'}],              // M76
+  [{type:'fixed',team:'Ivory Coast'},{type:'fixed',team:'Norway'}],        // M78
+  // → R16 M92 → QF M99 → SF M102
+  [{type:'fixed',team:'Mexico'},{type:'fixed',team:'Ecuador'}],            // M79
+  [{type:'fixed',team:'England'},{type:'fixed',team:'DR Congo'}],          // M80
+  // → R16 M95 → QF M100 → SF M102
   [{type:'fixed',team:'Argentina'},{type:'fixed',team:'Cape Verde'}],      // M86
-  [{type:'fixed',team:'Portugal'},{type:'fixed',team:'Croatia'}],          // M87
   [{type:'fixed',team:'Australia'},{type:'fixed',team:'Egypt'}],           // M88
+  // → R16 M96 → QF M100 → SF M102
+  [{type:'fixed',team:'Switzerland'},{type:'fixed',team:'Algeria'}],       // M85
+  [{type:'fixed',team:'Colombia'},{type:'fixed',team:'Ghana'}],            // M87
 ];
 const ROUNDS=['r32','r16','qf','sf'];
 const ROUND_LABELS={r32:'Round of 32',r16:'Round of 16',qf:'Quarterfinals',sf:'Semifinals'};
