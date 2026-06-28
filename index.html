@@ -289,6 +289,41 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 .lb-view-tab.active{background:var(--ink);color:white;border-color:var(--ink);}
 .lb-view{display:none;}
 .lb-view.active{display:block;}
+
+/* ── Score breakdown sheet ── */
+.bd-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:400;opacity:0;transition:opacity .2s;pointer-events:none;}
+.bd-overlay.open{opacity:1;pointer-events:all;}
+.bd-sheet{position:fixed;bottom:0;left:0;right:0;max-height:88vh;overflow-y:auto;background:var(--surface);border-radius:18px 18px 0 0;z-index:401;transform:translateY(100%);transition:transform .28s cubic-bezier(.32,1,.23,1);padding-bottom:max(env(safe-area-inset-bottom),24px);}
+.bd-sheet.open{transform:translateY(0);}
+.bd-sheet-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 10px;}
+.bd-sheet-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;}
+.bd-close{background:none;border:none;font-size:26px;cursor:pointer;color:var(--muted);padding:0 4px;line-height:1;}
+.bd-total-bar{margin:0 20px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+.bd-section{padding:0 20px 14px;}
+.bd-section-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;}
+.bd-row{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.bd-row:last-child{border-bottom:none;}
+.bd-hit-icon{width:16px;text-align:center;flex-shrink:0;font-size:11px;}
+.bd-hit-icon.hit{color:var(--green);}
+.bd-hit-icon.miss{color:var(--red);}
+.bd-team{flex:1;color:var(--ink2);}
+.bd-pts{font-size:12px;font-weight:700;color:var(--ink);min-width:26px;text-align:right;}
+
+/* ── Score components table ── */
+.bd-table-wrap{overflow-x:auto;padding:0 16px 16px;}
+.bd-table{width:100%;border-collapse:collapse;font-size:12px;}
+.bd-table th{padding:7px 6px;text-align:center;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border);white-space:nowrap;line-height:1.3;}
+.bd-table th:first-child{text-align:left;}
+.bd-table td{padding:9px 6px;text-align:center;border-bottom:1px solid var(--border2);color:var(--ink2);}
+.bd-table td:first-child{text-align:left;font-weight:600;color:var(--ink);white-space:nowrap;cursor:pointer;}
+.bd-table td:first-child:hover{text-decoration:underline;}
+.bd-table tr.is-me td{background:var(--bg2);}
+.bd-table td.total-val{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--ink);}
+.bd-badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:19px;border-radius:9px;font-size:11px;font-weight:700;padding:0 5px;}
+.bd-badge.scored{background:var(--green-light);color:var(--green);}
+.bd-badge.zero{background:var(--bg2);color:var(--muted);}
+.bd-name-link{cursor:pointer;}
+.bd-name-link:hover{text-decoration:underline;}
 /* Score Race */
 .chart-wrap{margin:12px 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
 .chart-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
@@ -670,6 +705,98 @@ function scoreUser(picks,results){
     ((picks.bracket||{})[k]||[]).forEach((t,i)=>{if(t&&t===a[i])sc+=POINTS[k];});});
   if(picks.bracket?.champion&&picks.bracket.champion===(results.bracket?.champion))sc+=POINTS.champion;
   return sc;
+}
+
+function scoreBreakdown(picks,results){
+  if(!picks||!results)return{groups:{hits:[],missed:[],pts:0},wildcards:{hits:[],missed:[],pts:0},r32:{hits:[],missed:[],pts:0},r16:{hits:[],missed:[],pts:0},qf:{hits:[],missed:[],pts:0},sf:{hits:[],missed:[],pts:0},champion:{pick:null,correct:false,pts:0},total:0};
+  const out={groups:{hits:[],missed:[],pts:0},wildcards:{hits:[],missed:[],pts:0},r32:{hits:[],missed:[],pts:0},r16:{hits:[],missed:[],pts:0},qf:{hits:[],missed:[],pts:0},sf:{hits:[],missed:[],pts:0},champion:{pick:picks.bracket?.champion||null,correct:false,pts:0},total:0};
+  GROUPS.forEach(g=>{
+    const actual=(results.groups||{})[g.id]||[];
+    ((picks.groups||{})[g.id]||[]).forEach(t=>{
+      if(actual.includes(t)){out.groups.hits.push({team:t,group:g.id});out.groups.pts+=POINTS.group;}
+      else{out.groups.missed.push({team:t,group:g.id});}
+    });
+  });
+  const aWC=results.wildcards||[];
+  (picks.wildcards||[]).forEach(t=>{
+    if(aWC.includes(t)){out.wildcards.hits.push(t);out.wildcards.pts+=POINTS.wildcard;}
+    else{out.wildcards.missed.push(t);}
+  });
+  ROUNDS.forEach(k=>{
+    const actual=(results.bracket||{})[k]||[];
+    ((picks.bracket||{})[k]||[]).forEach((t,i)=>{
+      if(t&&t===actual[i]){out[k].hits.push(t);out[k].pts+=POINTS[k];}
+      else if(t){out[k].missed.push(t);}
+    });
+  });
+  if(out.champion.pick&&out.champion.pick===(results.bracket?.champion)){out.champion.correct=true;out.champion.pts=POINTS.champion;}
+  out.total=out.groups.pts+out.wildcards.pts+out.r32.pts+out.r16.pts+out.qf.pts+out.sf.pts+out.champion.pts;
+  return out;
+}
+
+function showPlayerBreakdown(username){
+  const user=(S.allData?.users||{})[username];
+  const results=S.allData?.results||{};
+  if(!user)return;
+  const bd=scoreBreakdown(user,results);
+  const ROUND_LABELS={r32:'Round of 32',r16:'Round of 16',qf:'Quarterfinals',sf:'Semifinals'};
+  function catSection(key,label){
+    const c=bd[key];
+    const all=[...c.hits.map(item=>({item,hit:true})),...c.missed.map(item=>({item,hit:false}))];
+    if(!all.length)return`<div style="padding:0 20px 12px"><div class="bd-section-label">${label}</div><div style="font-size:12px;color:var(--muted);font-style:italic">No picks made yet</div></div>`;
+    const rows=all.map(({item,hit})=>{
+      const team=typeof item==='object'?item.team:item;
+      const sub=typeof item==='object'?` <span style="font-size:10px;color:var(--muted)">Grp ${item.group}</span>`:'';
+      return`<div class="bd-row">
+        <div class="bd-hit-icon ${hit?'hit':'miss'}">${hit?'✓':'✗'}</div>
+        <div class="bd-team" style="${hit?'':'opacity:.5'}">${f(team)} ${team}${sub}</div>
+        <div class="bd-pts" style="${hit?'':'color:var(--muted)'}">${hit?'+'+POINTS[key]:'0'}</div>
+      </div>`;
+    }).join('');
+    return`<div class="bd-section">
+      <div class="bd-section-label">${label} · <b>${c.pts} pts</b> (${c.hits.length} of ${all.length} correct)</div>
+      ${rows}
+    </div>`;
+  }
+  const champSection=bd.champion.pick?`<div class="bd-section">
+    <div class="bd-section-label">Champion Pick · <b>${bd.champion.pts} pts</b></div>
+    <div class="bd-row">
+      <div class="bd-hit-icon ${bd.champion.correct?'hit':'miss'}">${bd.champion.correct?'✓':'✗'}</div>
+      <div class="bd-team" style="${bd.champion.correct?'':'opacity:.5'}">${f(bd.champion.pick)} ${bd.champion.pick}</div>
+      <div class="bd-pts" style="${bd.champion.correct?'':'color:var(--muted)'}">${bd.champion.correct?'+'+POINTS.champion:'0'}</div>
+    </div>
+  </div>`:'';
+  const sheet=document.getElementById('bd-sheet');
+  sheet.innerHTML=`
+    <div class="bd-sheet-header">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Score Breakdown</div>
+        <div class="bd-sheet-title">${username}</div>
+      </div>
+      <button class="bd-close" onclick="closePlayerBreakdown()">×</button>
+    </div>
+    <div class="bd-total-bar">
+      <div style="font-size:13px;color:var(--muted)">Total Score</div>
+      <div style="display:flex;align-items:baseline;gap:4px">
+        <div style="font-family:'Playfair Display',serif;font-size:30px;font-weight:700">${bd.total}</div>
+        <div style="font-size:11px;color:var(--muted)">pts</div>
+      </div>
+    </div>
+    ${catSection('groups','Group Stage')}
+    ${catSection('wildcards','Wildcards (3rd place)')}
+    ${catSection('r32','Round of 32')}
+    ${catSection('r16','Round of 16')}
+    ${catSection('qf','Quarterfinals')}
+    ${catSection('sf','Semifinals')}
+    ${champSection}
+  `;
+  document.getElementById('bd-overlay').classList.add('open');
+  sheet.classList.add('open');
+}
+
+function closePlayerBreakdown(){
+  document.getElementById('bd-overlay').classList.remove('open');
+  document.getElementById('bd-sheet').classList.remove('open');
 }
 function shareUrl(){
   return location.origin+location.pathname;
@@ -1347,6 +1474,7 @@ ${rNav('leaderboard')}
 
   <div class="lb-view-tabs">
     <div class="lb-view-tab active" data-lbv="classic" onclick="switchLbView('classic')">Classic</div>
+    <div class="lb-view-tab" data-lbv="table" onclick="switchLbView('table')">Breakdown</div>
     <div class="lb-view-tab" data-lbv="race" onclick="switchLbView('race')">Score Race</div>
     <div class="lb-view-tab" data-lbv="lebowski" onclick="switchLbView('lebowski')">The Dude</div>
   </div>
@@ -1359,9 +1487,9 @@ ${rNav('leaderboard')}
       <div class="lb-top3-item">
         <div class="lb-rank-num${i===0?' p1':''}">${i+1}</div>
         <div class="lb-avatar${i===1?' p2':i===2?' p3':''}">${u.username[0].toUpperCase()}</div>
-        <div class="lb-name">${u.username}${u.username===S.username?`<span class="you-badge" style="margin-left:6px">you</span>`:''}
+        <div class="lb-name bd-name-link" onclick="showPlayerBreakdown('${u.username}')">${u.username}${u.username===S.username?`<span class="you-badge" style="margin-left:6px">you</span>`:''}
           <div class="lb-title">${rankTitle(i+1)}</div>
-          <div class="lb-pct">${p}% complete</div>
+          <div class="lb-pct">${p}% complete · tap for breakdown</div>
         </div>
         <div class="lb-score-col">
           <div class="lb-score">${sc}</div>
@@ -1374,13 +1502,50 @@ ${rNav('leaderboard')}
       <div class="lb-item${u.username===S.username?' is-me':''}">
         <div class="lb-rank">#${i+4}</div>
         <div class="lb-avatar" style="width:32px;height:32px;font-size:13px">${u.username[0].toUpperCase()}</div>
-        <div class="lb-name-sm">${u.username}${u.username===S.username?' (you)':''}
+        <div class="lb-name-sm bd-name-link" onclick="showPlayerBreakdown('${u.username}')">${u.username}${u.username===S.username?' (you)':''}
           <div class="lb-title">${rankTitle(i+4)}</div>
-          <div class="lb-pct">${p}% complete</div>
+          <div class="lb-pct">${p}% complete · tap for breakdown</div>
         </div>
         <div class="lb-score-col"><div class="lb-score-sm">${sc}</div><div class="lb-pts-sm">pts</div></div>
       </div>`).join('')}
     </div>`:''}`}
+  </div>
+
+  <!-- BREAKDOWN TABLE -->
+  <div class="lb-view" id="lb-view-table">
+    <div style="padding:14px 16px 4px">
+      <div class="screen-eyebrow" style="margin-bottom:2px">Score Components</div>
+      <p class="screen-sub">Points by category · tap a name for full breakdown</p>
+    </div>
+    <div class="bd-table-wrap">
+      <table class="bd-table">
+        <thead>
+          <tr>
+            <th style="text-align:left">Player</th>
+            <th>Groups<br><span style="font-weight:400;font-size:8px">+${POINTS.group}/team</span></th>
+            <th>WCs<br><span style="font-weight:400;font-size:8px">+${POINTS.wildcard}</span></th>
+            <th>R32<br><span style="font-weight:400;font-size:8px">+${POINTS.r32}</span></th>
+            <th>R16<br><span style="font-weight:400;font-size:8px">+${POINTS.r16}</span></th>
+            <th>QF<br><span style="font-weight:400;font-size:8px">+${POINTS.qf}</span></th>
+            <th>SF<br><span style="font-weight:400;font-size:8px">+${POINTS.sf}</span></th>
+            <th>🏆<br><span style="font-weight:400;font-size:8px">+${POINTS.champion}</span></th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ranked.map(({u,sc})=>{
+            const bd=scoreBreakdown(u,results);
+            const cats=['groups','wildcards','r32','r16','qf','sf'];
+            return`<tr class="${u.username===S.username?'is-me':''}">
+              <td onclick="showPlayerBreakdown('${u.username}')">${u.username}${u.username===S.username?' <span class="you-badge">you</span>':''}</td>
+              ${cats.map(k=>`<td><span class="bd-badge ${bd[k].pts?'scored':'zero'}">${bd[k].pts}</span></td>`).join('')}
+              <td><span class="bd-badge ${bd.champion.pts?'scored':'zero'}">${bd.champion.pts}</span></td>
+              <td class="total-val">${sc}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- SCORE RACE -->
@@ -1421,6 +1586,10 @@ ${rNav('leaderboard')}
       <button class="lb-dream-replay" onclick="startLbDream()">REPLAY</button>
     </div>
   </div>
+
+  <!-- PLAYER BREAKDOWN SHEET -->
+  <div id="bd-overlay" class="bd-overlay" onclick="closePlayerBreakdown()"></div>
+  <div id="bd-sheet" class="bd-sheet"></div>
 
   ${S.isAdmin?`
   <div class="card admin-card">
