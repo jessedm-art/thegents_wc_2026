@@ -1791,11 +1791,12 @@ async function fetchLiveResults(){
   if(!S.apiKey){showErr('Add a football-data.org API key in Settings first');return;}
   S.saving=true;render();
   try{
-    const HD={'X-Auth-Token':S.apiKey};
+    const HD={'X-Auth-Token':S.apiKey,'x-requested-with':'XMLHttpRequest'};
     const base='https://api.football-data.org/v4';
+    const pFetch=(url,opts={})=>fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`,{...opts,headers:{...HD}});
 
     /* 1 — Group standings */
-    const stRes=await fetch(`${base}/competitions/WC/standings`,{headers:HD});
+    const stRes=await pFetch(`${base}/competitions/WC/standings`);
     if(!stRes.ok)throw new Error(`API error ${stRes.status}: ${stRes.statusText}`);
     const stData=await stRes.json();
 
@@ -1821,7 +1822,7 @@ async function fetchLiveResults(){
 
     const STAGE_MAP=[['ROUND_OF_32','r32',16],['ROUND_OF_16','r16',8],['QUARTER_FINALS','qf',4],['SEMI_FINALS','sf',2]];
     for(const[apiStage,key,size]of STAGE_MAP){
-      const mRes=await fetch(`${base}/competitions/WC/matches?stage=${apiStage}`,{headers:HD});
+      const mRes=await pFetch(`${base}/competitions/WC/matches?stage=${apiStage}`);
       if(!mRes.ok)break;
       const mData=await mRes.json();
       const done=(mData.matches||[]).filter(m=>m.status==='FINISHED');
@@ -1840,7 +1841,7 @@ async function fetchLiveResults(){
     }
 
     /* 4 — Final */
-    const fRes=await fetch(`${base}/competitions/WC/matches?stage=FINAL`,{headers:HD});
+    const fRes=await pFetch(`${base}/competitions/WC/matches?stage=FINAL`);
     if(fRes.ok){
       const fData=await fRes.json();
       const fm=(fData.matches||[]).find(m=>m.status==='FINISHED');
