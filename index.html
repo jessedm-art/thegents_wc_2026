@@ -739,9 +739,11 @@ function showPlayerBreakdown(username){
   const results=S.allData?.results||{};
   if(!user)return;
   const bd=scoreBreakdown(user,results);
-  const ROUND_LABELS={r32:'Round of 32',r16:'Round of 16',qf:'Quarterfinals',sf:'Semifinals'};
+  // Map plural section keys → POINTS keys (which are singular)
+  const PKEY={groups:'group',wildcards:'wildcard',r32:'r32',r16:'r16',qf:'qf',sf:'sf'};
   function catSection(key,label){
     const c=bd[key];
+    const ptsEach=POINTS[PKEY[key]];
     const all=[...c.hits.map(item=>({item,hit:true})),...c.missed.map(item=>({item,hit:false}))];
     if(!all.length)return`<div style="padding:0 20px 12px"><div class="bd-section-label">${label}</div><div style="font-size:12px;color:var(--muted);font-style:italic">No picks made yet</div></div>`;
     const rows=all.map(({item,hit})=>{
@@ -750,7 +752,7 @@ function showPlayerBreakdown(username){
       return`<div class="bd-row">
         <div class="bd-hit-icon ${hit?'hit':'miss'}">${hit?'✓':'✗'}</div>
         <div class="bd-team" style="${hit?'':'opacity:.5'}">${f(team)} ${team}${sub}</div>
-        <div class="bd-pts" style="${hit?'':'color:var(--muted)'}">${hit?'+'+POINTS[key]:'0'}</div>
+        <div class="bd-pts" style="${hit?'':'color:var(--muted)'}">${hit?'+'+ptsEach:'0'}</div>
       </div>`;
     }).join('');
     return`<div class="bd-section">
