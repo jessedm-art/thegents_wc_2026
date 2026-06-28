@@ -2066,7 +2066,9 @@ async function doSaveResults(){
   S.saving=true;render();
   try{
     const data=await fetchData();
-    data.results={groups,wildcards};data.adminLocked=locked;data.bracketOpen=bracketOpen;
+    // Preserve existing bracket/champion data — manual override only updates groups & wildcards
+    data.results={...(data.results||{}),groups,wildcards};
+    data.adminLocked=locked;data.bracketOpen=bracketOpen;
     await writeData(data);S.allData=data;toast('Results saved!');
   }catch(e){showErr(e.message);}
   S.saving=false;render();
