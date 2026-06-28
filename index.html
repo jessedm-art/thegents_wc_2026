@@ -2001,10 +2001,13 @@ async function fetchLiveResults(){
     const groups={};const thirds=[];
     for(const st of(stData.standings||[])){
       if(st.type!=='TOTAL')continue;
-      const gLetter=(st.group||'').replace('GROUP_','');
-      if(!gLetter)continue;
       const tbl=st.table||[];
-      groups[gLetter]=tbl.slice(0,2).map(r=>normTeam(r.team?.name));
+      if(!tbl.length)continue;
+      // Match this standing to our GROUPS by team name (robust to API group naming: GROUP_A, GROUP_1, etc.)
+      const tblNames=tbl.map(r=>normTeam(r.team?.name));
+      const matchedGroup=GROUPS.find(g=>g.teams.some(t=>tblNames.includes(t)));
+      if(!matchedGroup)continue;
+      groups[matchedGroup.id]=tblNames.slice(0,2);
       const t3=tbl[2];
       if(t3)thirds.push({team:normTeam(t3.team?.name),pts:t3.points,gd:t3.goalDifference,gf:t3.goalsFor});
     }
