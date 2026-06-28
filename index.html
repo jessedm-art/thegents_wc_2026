@@ -1578,10 +1578,22 @@ function runLbRace(){
         const lastX=xP(n-1),lastY=yP(p.scores[n-1]);
         dot.setAttribute('cx',lastX);dot.setAttribute('cy',lastY);dot.setAttribute('opacity','1');
         lbl.setAttribute('x',lastX+6);lbl.setAttribute('y',lastY+4);lbl.setAttribute('opacity','1');
+        lbl.dataset.baseY=lastY+4;
       }
       path.setAttribute('d',d);
     });
-    if(t<1)lbRaceAnimFrame=requestAnimationFrame(frame);
+    if(t<1){lbRaceAnimFrame=requestAnimationFrame(frame);}
+    else{
+      // De-collide labels: sort by Y, push apart with min gap
+      const MIN_GAP=13;
+      const lblEls=_lbRaceData.map((_,i)=>document.getElementById(`lbl-${i}`))
+        .filter(Boolean).map(el=>({el,y:parseFloat(el.dataset.baseY||el.getAttribute('y')||0)}))
+        .sort((a,b)=>a.y-b.y);
+      for(let i=1;i<lblEls.length;i++){
+        if(lblEls[i].y-lblEls[i-1].y<MIN_GAP)lblEls[i].y=lblEls[i-1].y+MIN_GAP;
+        lblEls[i].el.setAttribute('y',lblEls[i].y);
+      }
+    }
   }
   lbRaceAnimFrame=requestAnimationFrame(frame);
 }
