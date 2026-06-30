@@ -503,6 +503,13 @@ details summary::-webkit-details-marker{display:none;}
 /* ════════════════════════════════════
    CHAT SIDEBAR
 ════════════════════════════════════ */
+/* ── Bracket tree fullscreen ── */
+#bktree-wrap:fullscreen,#bktree-wrap:-webkit-full-screen{
+  background:var(--bg);padding:24px 32px;overflow:auto;
+}
+#bktree-wrap:fullscreen .bktree-inner,#bktree-wrap:-webkit-full-screen .bktree-inner{
+  min-width:unset;padding-bottom:16px;
+}
 </style>
 </head>
 <body>
@@ -942,9 +949,12 @@ function rBracketTree(picks,results){
 
   const rLabels=['R32','R16','QF','SF','Final'];
   return`
-<div class="section-header" style="margin-top:4px"><span class="section-title">Tournament Bracket</span></div>
-<div style="overflow:auto;-webkit-overflow-scrolling:touch;padding:0 14px 4px;max-height:540px">
-  <div style="min-width:${SVG_W}px;padding-bottom:4px">
+<div class="section-header" style="margin-top:4px">
+  <span class="section-title">Tournament Bracket</span>
+  <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px;cursor:pointer" onclick="fullscreenBracketTree()">⛶ tap to expand</span>
+</div>
+<div id="bktree-wrap" onclick="fullscreenBracketTree()" style="overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;padding:0 14px 4px;cursor:pointer">
+  <div class="bktree-inner" style="min-width:${SVG_W}px;padding-bottom:4px">
     <div style="display:flex;margin-bottom:6px">
       ${rLabels.map(l=>`<div style="width:${CW}px;flex-shrink:0;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${l}</div>`).join('')}
     </div>
@@ -2948,6 +2958,17 @@ async function init(){
   nav('setup');
 }
 init();
+function fullscreenBracketTree(){
+  const el=document.getElementById('bktree-wrap');
+  if(!el)return;
+  if(document.fullscreenElement||document.webkitFullscreenElement){
+    (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);
+  }else{
+    const req=el.requestFullscreen||el.webkitRequestFullscreen;
+    if(req)req.call(el).catch(()=>{});
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(document.fullscreenElement||document.webkitFullscreenElement)){(document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document);}});
 </script>
 </body>
 </html>
