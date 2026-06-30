@@ -35,7 +35,82 @@
   --orange:var(--ink);--orange-dim:#222;--orange-glow:rgba(0,0,0,.06);
   --surface3:var(--surface2);
 }
-html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+
+/* ── DARK THEME ── */
+[data-theme="dark"]{
+  --bg:#0f0f0f;
+  --bg2:#1a1a1a;
+  --surface:#1c1c1e;
+  --surface2:#252525;
+  --border:#2c2c2e;
+  --border2:#3a3a3c;
+  --ink:#f2f2f7;
+  --ink2:#d1d1d6;
+  --muted:#8e8e93;
+  --accent:#f2f2f7;
+  --red:#ff453a;
+  --red-light:#2c1010;
+  --green:#30d158;
+  --green-light:#0a2018;
+  --gold:#ffd60a;
+  --gold-light:#221f00;
+  --amber:#ff9f0a;
+  --bar-bg:rgba(15,15,15,.95);
+  --text:var(--ink);--text2:var(--ink2);
+  --blue:var(--ink);--blue-mid:#888;--blue-dim:#aaa;
+  --blue-light:#1e1e1e;--blue-glow:rgba(255,255,255,.04);
+  --orange:var(--ink);--orange-dim:#aaa;--orange-glow:rgba(255,255,255,.04);
+  --surface3:var(--surface2);
+}
+
+/* ── PURPLE THEME ── */
+[data-theme="purple"]{
+  --bg:#0b0812;
+  --bg2:#120e22;
+  --surface:#16112a;
+  --surface2:#1e1838;
+  --border:#2e2558;
+  --border2:#3d3278;
+  --ink:#ede8ff;
+  --ink2:#c8bcf5;
+  --muted:#8070b8;
+  --accent:#a78bfa;
+  --red:#f87171;
+  --red-light:#2a0e28;
+  --green:#34d399;
+  --green-light:#062218;
+  --gold:#fbbf24;
+  --gold-light:#1c1400;
+  --amber:#a78bfa;
+  --bar-bg:rgba(11,8,18,.95);
+  --text:var(--ink);--text2:var(--ink2);
+  --blue:#a78bfa;--blue-mid:#7c3aed;--blue-dim:#6d28d9;
+  --blue-light:#1e1838;--blue-glow:rgba(167,139,250,.08);
+  --orange:#a78bfa;--orange-dim:#7c3aed;--orange-glow:rgba(167,139,250,.08);
+  --surface3:var(--surface2);
+}
+[data-theme="purple"] .nav-btn.active{color:#a78bfa;border-top-color:#a78bfa;}
+[data-theme="purple"] .btn-primary{background:#7c3aed;}
+[data-theme="purple"] .btn-primary:hover{background:#6d28d9;}
+[data-theme="purple"] .team-pill.selected,[data-theme="purple"] .team-pill.winner{background:#7c3aed;border-color:#7c3aed;}
+[data-theme="purple"] .uprogress-fill,[data-theme="purple"] .lb-rank-num.p1{background:#a78bfa;}
+[data-theme="purple"] .you-badge{background:#7c3aed;}
+[data-theme="purple"] .check-label input{accent-color:#a78bfa;}
+[data-theme="purple"] .field input:focus{border-color:#a78bfa;box-shadow:0 0 0 2px rgba(167,139,250,.2);}
+
+/* ── MOBILE-FRIENDLY auto class ── */
+html.is-mobile .team-pill{padding:9px 10px;min-height:44px;}
+html.is-mobile .nav-btn{padding:11px 4px 11px;}
+html.is-mobile .nav-label{font-size:10px;}
+html.is-mobile .qcard{min-height:108px;padding:20px 8px 18px;}
+html.is-mobile .btn-primary{min-height:54px;font-size:15px;}
+html.is-mobile .btn-secondary{min-height:50px;}
+html.is-mobile .field input{padding:13px 14px;font-size:15px;}
+@media(hover:none)and(pointer:coarse){
+  .team-pill{min-height:40px;}
+  .btn-gear{padding:10px;}
+}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .25s,color .25s;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
@@ -43,14 +118,14 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 /* ── Layout ── */
 #app{min-height:100vh;display:flex;flex-direction:column;}
 .screen{flex:1;padding-bottom:90px;min-height:100vh;}
-.top-bar{position:fixed;top:0;left:0;right:0;z-index:200;height:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;justify-content:flex-end;padding:env(safe-area-inset-top) 18px 0;background:rgba(250,249,247,.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
+.top-bar{position:fixed;top:0;left:0;right:0;z-index:200;height:calc(52px + env(safe-area-inset-top));display:flex;flex-direction:column;justify-content:flex-end;padding:env(safe-area-inset-top) 18px 0;background:var(--bar-bg,rgba(250,249,247,.96));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
 .top-bar-inner{display:flex;align-items:center;justify-content:space-between;width:100%;height:52px;}
 .top-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
 .top-user{font-size:12px;font-weight:600;color:var(--muted);}
 .btn-gear{background:none;border:none;font-size:17px;cursor:pointer;padding:8px;opacity:.5;transition:opacity .2s;line-height:1;}
 .btn-gear:hover{opacity:1;}
 .top-spacer{height:calc(52px + env(safe-area-inset-top));}
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;display:flex;background:rgba(250,249,247,.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding-bottom:max(env(safe-area-inset-bottom),8px);}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;display:flex;background:var(--bar-bg,rgba(250,249,247,.97));backdrop-filter:blur(20px);border-top:1px solid var(--border);padding-bottom:max(env(safe-area-inset-bottom),8px);}
 .nav-btn{flex:1;background:none;border:none;padding:10px 4px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);transition:color .15s;border-top:2px solid transparent;position:relative;}
 .nav-btn.active{color:var(--ink);border-top-color:var(--ink);}
 .nav-icon{font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;height:20px;}
@@ -544,7 +619,7 @@ const SHARED_TOKEN=''; // Token is entered by admin in Settings — never hardco
 ══════════════════════════════════════════ */
 const S={screen:'setup',username:null,isAdmin:false,apiKey:null,
   allData:null,myPicks:null,saving:false,error:null,
-  picksTab:'groups',bracketRound:'r32',viewingUser:null};
+  picksTab:'groups',bracketRound:'r32',viewingUser:null,theme:'light'};
 
 function emptyPicks(){
   return{groups:{},wildcards:[],
@@ -597,10 +672,33 @@ function loadLocal(){
     if(c.username)S.username=c.username;
     if(c.isAdmin)S.isAdmin=c.isAdmin;
     if(c.apiKey)S.apiKey=c.apiKey;
+    if(c.theme)S.theme=c.theme;
   }catch(e){}
 }
 function saveLocal(){
-  localStorage.setItem('wc26',JSON.stringify({username:S.username,isAdmin:S.isAdmin,apiKey:S.apiKey}));
+  localStorage.setItem('wc26',JSON.stringify({username:S.username,isAdmin:S.isAdmin,apiKey:S.apiKey,theme:S.theme}));
+}
+
+/* ── THEME ── */
+const THEMES=['light','dark','purple'];
+const THEME_ICON={light:'☀️',dark:'🌙',purple:'💜'};
+function applyTheme(){
+  const t=S.theme||'light';
+  document.documentElement.setAttribute('data-theme',t==='light'?'':t);
+}
+function cycleTheme(){
+  const idx=THEMES.indexOf(S.theme||'light');
+  S.theme=THEMES[(idx+1)%THEMES.length];
+  applyTheme();saveLocal();
+  // update just the button without full re-render
+  const btn=document.getElementById('theme-btn');
+  if(btn)btn.textContent=THEME_ICON[S.theme||'light'];
+}
+
+/* ── MOBILE DETECTION ── */
+function detectMobile(){
+  const touch=navigator.maxTouchPoints>1||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||window.matchMedia('(pointer:coarse)').matches;
+  document.documentElement.classList.toggle('is-mobile',touch);
 }
 
 /* ══════════════════════════════════════════
@@ -1022,6 +1120,7 @@ function rNav(active){
     <span class="top-title" style="cursor:pointer">The Gents WC 2026</span>
     <span class="top-user">${S.username||''}</span>
     <div style="display:flex;align-items:center;gap:2px;">
+      <button id="theme-btn" onclick="cycleTheme()" style="background:none;border:none;font-size:16px;cursor:pointer;padding:8px;line-height:1;opacity:.75;transition:opacity .2s" title="Cycle theme">${THEME_ICON[S.theme||'light']}</button>
       <button class="btn-gear" onclick="nav('setup')">${gearSVG}</button>
     </div>
   </div>
@@ -1093,37 +1192,85 @@ function rSetup(){return`
 /* ── HOME ─────────────────────────────── */
 function rHome(){
   const users=Object.values(S.allData?.users||{});
+  const res=S.allData?.results||{};
+  const hasRes=Object.keys(res.groups||{}).length>0;
   const pct=completion(S.myPicks||{});
   const b=S.myPicks?.bracket||{};
   const bDone=[...(b.r32||[]),...(b.r16||[]),...(b.qf||[]),...(b.sf||[]),b.champion].filter(Boolean).length;
   const gDone=Object.values(S.myPicks?.groups||{}).filter(v=>v?.length===2).length;
   const wcDone=(S.myPicks?.wildcards||[]).length;
   const r=2*Math.PI*38;
+  const myChamp=S.myPicks?.bracket?.champion;
+
+  // Build ranked list
+  const ranked=[...users].map(u=>({u,sc:scoreUser(u,res),p:completion(u)}))
+    .sort((a,b)=>hasRes?(b.sc-a.sc||b.p-a.p):(b.p-a.p));
+  const myRank=ranked.findIndex(x=>x.u.username===S.username)+1;
+  const myScore=scoreUser(S.myPicks||{},res);
+
+  // Per-rank visual style tokens
+  const ST={
+    1:{bg:'linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%)',border:'#f59e0b',color:'#78350f',sub:'#92400e',badge:'#fde68a',badgeC:'#78350f',bar:'#d97706',glow:'rgba(245,158,11,.18)'},
+    2:{bg:'linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%)',border:'#94a3b8',color:'#1e293b',sub:'#475569',badge:'#e2e8f0',badgeC:'#475569',bar:'#64748b',glow:'rgba(148,163,184,.14)'},
+    3:{bg:'linear-gradient(135deg,#fff7ed 0%,#fed7aa 100%)',border:'#fb923c',color:'#7c2d12',sub:'#9a3412',badge:'#fed7aa',badgeC:'#7c2d12',bar:'#ea580c',glow:'rgba(251,146,60,.16)'},
+    _:{bg:'var(--surface)',border:'var(--border)',color:'var(--ink)',sub:'var(--muted)',badge:'var(--bg2)',badgeC:'var(--muted)',bar:'var(--ink)',glow:'none'}
+  };
+  const st=n=>ST[n]||ST._;
+  const medal=n=>n===1?'🥇':n===2?'🥈':n===3?'🥉':null;
+
+  // Elim set for champion pick indicators
+  const elim=eliminatedTeams(res?.bracket||{});
+
   return`
 ${rNav('home')}
 <div class="screen">
-  <div class="home-hero">
-    <div class="greeting">World Cup 2026</div>
-    <h2>Hello, ${S.username}</h2>
-    <div class="progress-ring-wrap">
-      <svg width="96" height="96" viewBox="0 0 96 96">
-        <circle cx="48" cy="48" r="38" fill="none" stroke="var(--border)" stroke-width="6"/>
-        <circle cx="48" cy="48" r="38" fill="none" stroke="var(--ink)" stroke-width="6"
-          stroke-dasharray="${r}" stroke-dashoffset="${r*(1-pct/100)}"
-          stroke-linecap="round" transform="rotate(-90 48 48)" style="transition:.8s ease"/>
-      </svg>
-      <span class="ring-pct">${pct}%<span class="ring-sub">done</span></span>
-    </div>
-    <p class="hero-sub">${pct===100?'All phases complete — good luck!':(isBracketOpen()?'Fill in your knockout bracket picks':'Complete groups &amp; wildcards — bracket opens Jun 28')}</p>
+
+  <!-- ══ HERO ══ -->
+  <div style="padding:32px 20px 20px;text-align:center;border-bottom:1px solid var(--border);position:relative;overflow:hidden">
+    <!-- decorative bg -->
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% -10%,rgba(0,0,0,.04) 0%,transparent 100%);pointer-events:none"></div>
+    <div class="greeting" style="position:relative">World Cup 2026 · Mexico/Canada/USA</div>
+
+    <!-- Champion pick in hero -->
+    ${myChamp?`
+    <div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;margin:10px 0 6px">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fef9c3,#fde68a);border:2.5px solid #f59e0b;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 4px 20px rgba(245,158,11,.25),0 0 0 6px rgba(245,158,11,.08)">
+        ${f(myChamp)}
+      </div>
+      ${hasRes&&myRank?`
+      <div style="margin-top:8px;background:${st(myRank).badge};color:${st(myRank).badgeC};font-size:13px;font-weight:800;padding:4px 14px;border-radius:50px;letter-spacing:.02em">
+        ${medal(myRank)||'#'+myRank} &nbsp;·&nbsp; ${myScore} pts
+      </div>`:`
+      <div style="margin-top:8px;background:var(--bg2);color:var(--ink2);font-size:11px;font-weight:600;padding:3px 12px;border-radius:50px">
+        🏆 ${myChamp}
+      </div>`}
+    </div>`:`
+    <div style="display:inline-flex;flex-direction:column;align-items:center;margin:10px 0 6px">
+      <div class="progress-ring-wrap" style="margin-bottom:6px">
+        <svg width="80" height="80" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" r="38" fill="none" stroke="var(--border)" stroke-width="6"/>
+          <circle cx="48" cy="48" r="38" fill="none" stroke="var(--ink)" stroke-width="6"
+            stroke-dasharray="${r}" stroke-dashoffset="${r*(1-pct/100)}"
+            stroke-linecap="round" transform="rotate(-90 48 48)" style="transition:.8s ease"/>
+        </svg>
+        <span class="ring-pct">${pct}%<span class="ring-sub">done</span></span>
+      </div>
+    </div>`}
+
+    <h2 style="font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--ink);margin:4px 0 2px;position:relative">Hello, ${S.username}</h2>
+    <p class="hero-sub" style="position:relative;margin:0">
+      ${pct===100?(hasRes?'Picking complete — watching the results roll in 🎯':'All picks submitted — waiting for results'):(isBracketOpen()?'Fill in your knockout bracket picks':'Complete groups &amp; wildcards · bracket opens Jun 28')}
+    </p>
   </div>
 
   ${!isBracketOpen()?`
-  <div style="margin:0 16px 4px;background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:10px 14px;font-size:12px;color:#78350f;display:flex;align-items:center;gap:8px;">
+  <div style="margin:12px 14px 0;background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:10px 14px;font-size:12px;color:#78350f;display:flex;align-items:center;gap:8px;">
     <span style="font-size:15px">📅</span>
     <span><strong>Phase 3 bracket opens June 28</strong> — wildcards confirmed after group stage ends Jun 27${bracketCountdown()?` · ${bracketCountdown()} away`:''}</span>
   </div>`:''}
 
-  <div class="quick-grid">
+  <!-- ══ QUICK NAV ══ -->
+  <div class="quick-grid" style="padding:14px 14px 6px">
     <button class="qcard" onclick="nav('groups')">
       <span class="qcard-icon" style="display:flex;align-items:center;justify-content:center;color:var(--ink2)">${ICONS.groups_card}</span>
       <span class="qcard-label">Groups</span>
@@ -1141,36 +1288,100 @@ ${rNav('home')}
     </button>
   </div>
 
-  <div class="section-header"><span class="section-title">Participants · ${users.length}</span></div>
-  ${!users.length?`<div class="no-data">No picks yet</div>`:
-  users.map(u=>{
-    const sc=scoreUser(u,S.allData?.results||{});
-    const p=completion(u);
+  <!-- ══ STANDINGS ══ -->
+  ${users.length?`
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px">
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Standings</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:1px">${users.length} players${hasRes?' · tap card to view bracket':''}</div>
+    </div>
+    ${hasRes?`<div style="font-size:10px;color:var(--muted);background:var(--bg2);border:1px solid var(--border);padding:3px 9px;border-radius:20px;font-weight:600">Live scores</div>`:''}
+  </div>
+
+  <div style="padding:0 12px 6px">
+  ${ranked.map(({u,sc,p},idx)=>{
+    const rank=idx+1;
+    const s=st(rank);
+    const isMe=u.username===S.username;
+    const champ=u.bracket?.champion;
+    const champElim=champ&&elim.has(champ);
+    const isChampion=champ&&res?.bracket?.champion===champ;
+    const hasMedal=rank<=3;
+    // Avatar: champion flag if picked, else initial
+    const avatarSize=hasMedal?58:48;
+    const avatarFontSize=hasMedal?32:24;
+    const avatarBg=champ?`linear-gradient(135deg,${s.badge},${s.badge}dd)`:'var(--ink)';
+
     return`
-    <div class="user-card${u.username===S.username?' is-me':''}" onclick="viewUser('${u.username}')">
-      <div class="uavatar${u.username===S.username?' uavatar-me':''}">${u.username[0].toUpperCase()}</div>
-      <div class="uinfo">
-        <div class="uname">${u.username}${u.username===S.username?`<span class="you-badge">you</span>`:''}</div>
-        <div class="uprogress"><div class="uprogress-fill" style="width:${p}%"></div></div>
-      </div>
-      <div class="lb-score-col">
-        <div class="uscore">${sc||p+'%'}</div>
-        <div class="uscore-pts">${sc?'pts':''}</div>
+    <div onclick="viewUser('${u.username}')"
+      style="background:${s.bg};border:${isMe?'2.5px':'1.5px'} solid ${isMe?s.bar:s.border};border-radius:${hasMedal?18:14}px;margin-bottom:${hasMedal?10:7}px;padding:${hasMedal?14:11}px ${hasMedal?16:13}px;cursor:pointer;position:relative;overflow:hidden;box-shadow:${s.glow!=='none'?`0 4px 20px ${s.glow}`:'none'};-webkit-tap-highlight-color:transparent;transition:transform .1s,box-shadow .1s"
+      onmousedown="this.style.transform='scale(.985)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.985)'" ontouchend="this.style.transform=''">
+
+      <!-- decorative watermark for top 3 -->
+      ${hasMedal?`<div style="position:absolute;bottom:-8px;right:-4px;font-size:52px;opacity:.07;pointer-events:none;line-height:1">${medal(rank)}</div>`:''}
+
+      <div style="display:flex;align-items:center;gap:${hasMedal?14:11}px">
+
+        <!-- AVATAR with rank badge -->
+        <div style="position:relative;flex-shrink:0">
+          <div style="width:${avatarSize}px;height:${avatarSize}px;border-radius:50%;background:${champ?'#fff':'var(--ink)'};border:2px solid ${s.border};display:flex;align-items:center;justify-content:center;font-size:${avatarFontSize}px;line-height:1;${s.glow!=='none'?`box-shadow:0 0 0 4px ${s.glow}`:''}">
+            ${champ?f(champ):`<span style="color:#fff;font-size:${hasMedal?20:16}px;font-weight:800">${u.username[0].toUpperCase()}</span>`}
+          </div>
+          <!-- rank badge pinned to bottom-left of avatar -->
+          <div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:${s.badge};color:${s.badgeC};font-size:${hasMedal?10:8}px;font-weight:800;padding:2px ${hasMedal?8:6}px;border-radius:8px;white-space:nowrap;border:1.5px solid ${s.border};letter-spacing:.02em">
+            ${medal(rank)||('#'+rank)}
+          </div>
+        </div>
+
+        <!-- NAME + CHAMPION PICK -->
+        <div style="flex:1;min-width:0;padding-bottom:6px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:${hasMedal?15:13}px;font-weight:${hasMedal?800:600};color:${s.color}">${u.username}</span>
+            ${isMe?`<span style="font-size:8px;background:${s.bar};color:#fff;padding:2px 6px;border-radius:3px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">you</span>`:''}
+          </div>
+          ${champ?`
+          <div style="font-size:11px;color:${s.sub};margin-top:3px;display:flex;align-items:center;gap:4px">
+            <span style="font-size:12px">${isChampion?'🏆':champElim?'💀':'🎯'}</span>
+            <span style="${champElim?'text-decoration:line-through;opacity:.6':''}">${f(champ)} ${champ}</span>
+            ${champElim&&!isChampion?`<span style="font-size:9px;background:#fecaca;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700">OUT</span>`:''}
+            ${isChampion?`<span style="font-size:9px;background:#bbf7d0;color:#16a34a;padding:1px 5px;border-radius:3px;font-weight:700">CHAMPION</span>`:''}
+          </div>`:`
+          <div style="font-size:11px;color:${s.sub};margin-top:3px">${hasRes?'No champion pick':'—'}</div>`}
+          <!-- completion bar -->
+          <div style="height:2.5px;background:rgba(0,0,0,${hasMedal?.1:.07});border-radius:2px;margin-top:8px;overflow:hidden">
+            <div style="height:100%;width:${p}%;background:${s.bar};border-radius:2px;${hasRes?'opacity:.5':''}"></div>
+          </div>
+        </div>
+
+        <!-- SCORE / PROGRESS -->
+        <div style="text-align:right;flex-shrink:0;min-width:48px">
+          ${hasRes?`
+          <div style="font-size:${hasMedal?30:22}px;font-weight:800;color:${s.color};line-height:1">${sc}</div>
+          <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:${s.sub};margin-top:1px">pts</div>
+          `:`
+          <div style="font-size:${hasMedal?17:14}px;font-weight:700;color:${s.sub}">${p}%</div>
+          <div style="font-size:8px;color:${s.sub};margin-top:1px">done</div>`}
+        </div>
       </div>
     </div>`;
   }).join('')}
+  </div>
+  `:`<div class="no-data" style="padding:32px 0">No participants yet</div>`}
+
   ${S.isAdmin?`
-  <div style="padding:8px 16px 0">
+  <div style="padding:4px 14px 10px">
     <button class="btn-secondary" onclick="nav('leaderboard')">Admin: Enter Results</button>
   </div>`:''}
 
-  ${rBracketResultsUser(S.myPicks,S.allData?.results||{})}
+  <!-- ══ MY BRACKET ══ -->
+  ${rBracketResultsUser(S.myPicks,res)}
 
-  <div style="margin:16px 16px 4px">
-    <details open style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);">
+  <!-- ══ HOW TO PLAY ══ -->
+  <div style="margin:16px 14px 4px">
+    <details style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);">
       <summary style="padding:14px 16px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none;">
         <span>How to Play</span>
-        <span class="how-to-arrow" style="font-size:10px;transition:transform .2s">▼</span>
+        <span style="font-size:10px;transition:transform .2s">▼</span>
       </summary>
       <div style="padding:0 16px 16px;border-top:1px solid var(--border)">
         <ul class="info-list" style="margin-top:12px">
@@ -1484,23 +1695,24 @@ function rAllPicks(){
   </div>
   <div style="padding-bottom:80px">
     ${!users.length?`<div class="no-data">No picks yet</div>`:
-    users.map(u=>{
-      const sc=scoreUser(u,S.allData?.results||{});
+    (()=>{const res=S.allData?.results||{};const hasRes=Object.keys(res.groups||{}).length>0;
+    return users.map(u=>{
+      const sc=scoreUser(u,res);
       const p=completion(u);
       const champ=u.bracket?.champion;
       return`
       <div class="user-card${u.username===S.username?' is-me':''}" onclick="viewUser('${u.username}')">
-        <div class="uavatar${u.username===S.username?' uavatar-me':''}">${u.username[0].toUpperCase()}</div>
+        <div class="uavatar${u.username===S.username?' uavatar-me':''}" style="${champ?'background:#f1f5f9;font-size:20px;':''}">${champ?f(champ):u.username[0].toUpperCase()}</div>
         <div class="uinfo">
           <div class="uname">${u.username}${u.username===S.username?`<span class="you-badge">you</span>`:''}</div>
-          <div class="uname-sub">${champ?`⚽ ${champ}`:`${p}% complete`}</div>
+          <div class="uname-sub">${champ?`🏆 ${champ}`:`${p}% complete`}</div>
         </div>
         <div class="lb-score-col">
-          <div class="uscore">${sc||p+'%'}</div>
-          <div class="uscore-pts">${sc?'pts':''}</div>
+          <div class="uscore">${hasRes?sc:p+'%'}</div>
+          <div class="uscore-pts">${hasRes?'pts':''}</div>
         </div>
       </div>`;
-    }).join('')}
+    }).join('');})()}
   </div>
 </div>`;}
 
@@ -1511,10 +1723,10 @@ function rUserPicksView(u){
 <div class="screen">
   <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 0">
     <button class="back-btn" onclick="S.viewingUser=null;render()">←</button>
-    <div class="uavatar${isMe?' uavatar-me':''}" style="width:40px;height:40px;font-size:16px">${u.username[0].toUpperCase()}</div>
+    <div class="uavatar${isMe?' uavatar-me':''}" style="width:40px;height:40px;font-size:${u.bracket?.champion?'22':'16'}px;${u.bracket?.champion?'background:#f1f5f9;':''}">${u.bracket?.champion?f(u.bracket.champion):u.username[0].toUpperCase()}</div>
     <div>
       <div style="font-size:16px;font-weight:700;color:var(--ink)">${u.username}${isMe?' <span class="you-badge">you</span>':''}</div>
-      <div style="font-size:11px;color:var(--muted)">${completion(u)}% complete</div>
+      <div style="font-size:11px;color:var(--muted)">${u.bracket?.champion?`🏆 ${u.bracket.champion} · `:''}${completion(u)}% complete</div>
     </div>
   </div>
   <div class="picks-tabs" style="margin-top:12px">
@@ -1589,8 +1801,8 @@ function rPicksBody(tab,users){
   if(tab==='champions'){
     return users.map(u=>`
     <div class="user-card${u.username===S.username?' is-me':''}">
-      <div class="uavatar">${u.username[0].toUpperCase()}</div>
-      <div class="uinfo"><div class="uname">${u.username}</div></div>
+      <div class="uavatar" style="${u.bracket?.champion?'background:#f1f5f9;font-size:20px;':''}">${u.bracket?.champion?f(u.bracket.champion):u.username[0].toUpperCase()}</div>
+      <div class="uinfo"><div class="uname">${u.username}${u.username===S.username?`<span class="you-badge">you</span>`:''}</div></div>
       <div style="font-size:14px;font-weight:600">
         ${u.bracket?.champion?`${f(u.bracket.champion)} ${u.bracket.champion}`:'<span style="color:var(--muted)">—</span>'}
       </div>
@@ -1654,7 +1866,7 @@ ${rNav('leaderboard')}
       ${top3.map(({u,sc,p},i)=>`
       <div class="lb-top3-item">
         <div class="lb-rank-num${i===0?' p1':''}">${i+1}</div>
-        <div class="lb-avatar${i===1?' p2':i===2?' p3':''}">${u.username[0].toUpperCase()}</div>
+        <div class="lb-avatar${i===1?' p2':i===2?' p3':''}" style="${u.bracket?.champion?'background:#f1f5f9;font-size:22px;':''}">${u.bracket?.champion?f(u.bracket.champion):u.username[0].toUpperCase()}</div>
         <div class="lb-name bd-name-link" onclick="showPlayerBreakdown('${u.username}')">${u.username}${u.username===S.username?`<span class="you-badge" style="margin-left:6px">you</span>`:''}
           <div class="lb-title">${rankTitle(i+1)}</div>
           <div class="lb-pct">${p}% complete · tap for breakdown</div>
@@ -1669,7 +1881,7 @@ ${rNav('leaderboard')}
       ${rest.map(({u,sc,p},i)=>`
       <div class="lb-item${u.username===S.username?' is-me':''}">
         <div class="lb-rank">#${i+4}</div>
-        <div class="lb-avatar" style="width:32px;height:32px;font-size:13px">${u.username[0].toUpperCase()}</div>
+        <div class="lb-avatar" style="width:32px;height:32px;font-size:${u.bracket?.champion?'18':'13'}px;${u.bracket?.champion?'background:#f1f5f9;':''}">${u.bracket?.champion?f(u.bracket.champion):u.username[0].toUpperCase()}</div>
         <div class="lb-name-sm bd-name-link" onclick="showPlayerBreakdown('${u.username}')">${u.username}${u.username===S.username?' (you)':''}
           <div class="lb-title">${rankTitle(i+4)}</div>
           <div class="lb-pct">${p}% complete · tap for breakdown</div>
@@ -2285,6 +2497,8 @@ window.fetchLiveResults=fetchLiveResults;window.viewUser=viewUser;
 ══════════════════════════════════════════ */
 async function init(){
   loadLocal();
+  applyTheme();
+  detectMobile();
   if(S.username){
     try{
       S.allData=await fetchData();
