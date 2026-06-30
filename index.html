@@ -1575,42 +1575,67 @@ ${rNav('bracket')}
   const picks=S.myPicks||emptyPicks();
   const locked=isLocked();
   const b=picks.bracket||{r32:Array(16).fill(null),r16:Array(8).fill(null),qf:Array(4).fill(null),sf:Array(2).fill(null),champion:null};
+  const curTab=S.bracketTab||'r32';
 
-  // ── Layout constants ──
+  // ── R32 grid pick card ──
+  function gridCard(idx){
+    const[t1,t2]=r32Teams(idx,picks);
+    const pick=(b.r32||[])[idx];
+    const canPick=!locked&&!!t1&&!!t2;
+    const teamBtn=(t)=>{
+      if(!t)return`<div style="display:flex;align-items:center;gap:6px;flex:1;padding:8px 7px;border-radius:8px;background:var(--bg)"><span style="font-size:18px">🏳</span><span style="font-size:11px;color:var(--muted)">TBD</span></div>`;
+      const sel=pick===t;
+      const pc=`pickB('r32',${idx},'${t.replace(/'/g,"\\'")}')`;
+      return`<div onclick="${canPick?pc:''}" style="display:flex;align-items:center;gap:6px;flex:1;padding:8px 7px;border-radius:8px;cursor:${canPick?'pointer':'default'};background:${sel?'var(--ink)':'var(--bg)'};transition:.1s;-webkit-tap-highlight-color:transparent" onmousedown="this.style.opacity='.75'" onmouseup="this.style.opacity='1'" ontouchstart="this.style.opacity='.75'" ontouchend="this.style.opacity='1'">
+        <span style="font-size:18px;line-height:1;flex-shrink:0">${f(t)}</span>
+        <span style="font-size:11px;font-weight:${sel?700:500};color:${sel?'#fff':'var(--ink)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${sh(t)}</span>
+        ${sel?`<span style="font-size:11px;color:#fff;flex-shrink:0">✓</span>`:''}
+      </div>`;
+    };
+    return`<div style="background:var(--surface);border:1.5px solid ${pick?'var(--border2)':'var(--border)'};border-radius:12px;padding:7px;display:flex;flex-direction:column;gap:3px">
+      ${teamBtn(t1)}
+      <div style="font-size:8px;color:var(--muted);text-align:center;font-weight:700;letter-spacing:.1em;line-height:1">VS</div>
+      ${teamBtn(t2)}
+    </div>`;
+  }
+
+  // ── R32 date-grouped grid ──
+  const byDate={};
+  for(let i=0;i<16;i++){const d=R32_DATES[i];if(!byDate[d])byDate[d]=[];byDate[d].push(i);}
+  const r32Picked=(b.r32||[]).filter(Boolean).length;
+  const r32GridHtml=Object.keys(byDate).sort().map(d=>{
+    const dLabel=new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    const dayCards=byDate[d].map(i=>gridCard(i)).join('');
+    return`<div style="margin-bottom:16px">
+      <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">${dLabel}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${dayCards}</div>
+    </div>`;
+  }).join('');
+
+  // ── Layout constants (for full bracket SVG tree) ──
   const MW=128, MH=52, CG=28, PG=6, OG=18;
-  // Column x positions
   const COL={r32:0,r16:MW+CG,qf:2*(MW+CG),sf:3*(MW+CG),final:4*(MW+CG)};
   const CHAMP_X=COL.final+MW+CG;
 
-  // Match top-y calculation
   function mTop(round,idx){
-    if(round==='r32'){
-      const p=Math.floor(idx/2),i=idx%2;
-      return p*(2*MH+PG+OG)+i*(MH+PG);
-    }
+    if(round==='r32'){const p=Math.floor(idx/2),i=idx%2;return p*(2*MH+PG+OG)+i*(MH+PG);}
     const prev={r16:'r32',qf:'r16',sf:'qf',final:'sf'}[round];
-    const a=mTop(prev,idx*2)+MH/2;
-    const bb=mTop(prev,idx*2+1)+MH/2;
+    const a=mTop(prev,idx*2)+MH/2,bb=mTop(prev,idx*2+1)+MH/2;
     return(a+bb)/2-MH/2;
   }
 
   const TOTAL_H=mTop('r32',15)+MH+10;
   const TOTAL_W=CHAMP_X+148;
 
-  // ── Team row HTML ──
   function teamRow(t,won,canPick,pickCall){
     if(!t)return`<div class="bk-team"><span class="bk-name tbd-text">TBD</span></div>`;
-    return`<div class="bk-team${won?' won':''}${canPick?' clickable':''}"
-      ${canPick?`onclick="${pickCall}"`:''}
-    ><span class="bk-flag">${f(t)}</span><span class="bk-name">${sh(t)}</span>${won?`<span class="bk-chk">${checkSVG}</span>`:''}</div>`;
+    return`<div class="bk-team${won?' won':''}${canPick?' clickable':''}" ${canPick?`onclick="${pickCall}"`:''}><span class="bk-flag">${f(t)}</span><span class="bk-name">${sh(t)}</span>${won?`<span class="bk-chk">${checkSVG}</span>`:''}</div>`;
   }
 
-  // ── Match card HTML ──
   function mkCard(round,idx){
     let t1,t2;
     if(round==='r32'){[t1,t2]=r32Teams(idx,picks);}
-    else{const prev={r16:'r32',qf:'r16',sf:'qf',final:'sf'}[round];
-      t1=(b[prev]||[])[idx*2]||null;t2=(b[prev]||[])[idx*2+1]||null;}
+    else{const prev={r16:'r32',qf:'r16',sf:'qf',final:'sf'}[round];t1=(b[prev]||[])[idx*2]||null;t2=(b[prev]||[])[idx*2+1]||null;}
     const pick=round==='final'?b.champion:(b[round]||[])[idx];
     const canPick=!locked&&!!t1&&!!t2;
     const isPending=!t1||!t2;
@@ -1624,64 +1649,60 @@ ${rNav('bracket')}
     </div>`;
   }
 
-  // ── SVG connector lines ──
   const lines=[];
   function line(x1,y1,x2,y2){lines.push(`<line x1="${Math.round(x1)}" y1="${Math.round(y1)}" x2="${Math.round(x2)}" y2="${Math.round(y2)}"/>`);}
-
-  // R32→R16, R16→QF, QF→SF, SF→Final
-  const seq=['r32','r16','qf','sf','final'];
-  const sizes={r32:16,r16:8,qf:4,sf:2,final:1};
+  const seq=['r32','r16','qf','sf','final'],sizes={r32:16,r16:8,qf:4,sf:2,final:1};
   for(let ri=0;ri<4;ri++){
-    const cur=seq[ri],nxt=seq[ri+1];
-    const n=sizes[cur];
-    const cx=COL[cur],nx=COL[nxt];
-    const connX=cx+MW+CG/2;
+    const cur=seq[ri],nxt=seq[ri+1],n=sizes[cur],cx=COL[cur],nx=COL[nxt],connX=cx+MW+CG/2;
     for(let i=0;i<n/2;i++){
-      const y0=mTop(cur,i*2)+MH/2;
-      const y1=mTop(cur,i*2+1)+MH/2;
-      const ey=(y0+y1)/2;
-      line(cx+MW,y0,connX,y0);
-      line(cx+MW,y1,connX,y1);
-      line(connX,y0,connX,y1);
-      line(connX,ey,nx,ey);
+      const y0=mTop(cur,i*2)+MH/2,y1=mTop(cur,i*2+1)+MH/2,ey=(y0+y1)/2;
+      line(cx+MW,y0,connX,y0);line(cx+MW,y1,connX,y1);line(connX,y0,connX,y1);line(connX,ey,nx,ey);
     }
   }
-  // Final → champion
   const finY=mTop('final',0)+MH/2;
   line(COL.final+MW,finY,CHAMP_X,finY);
 
-  // ── Round column labels ──
   const roundNames={r32:'R32',r16:'R16',qf:'QF',sf:'SF',final:'Final'};
   const labelHtml=Object.keys(COL).map(r=>`<div class="bk-round-label" style="left:${COL[r]}px;width:${MW}px;text-align:center">${roundNames[r]}</div>`).join('');
 
-  // ── Champion display ──
   const champ=b.champion;
   const champY=mTop('final',0);
   const champHtml=`<div class="bk-champ-wrap" style="left:${CHAMP_X}px;top:${champY}px;width:140px;height:${MH}px">
-    ${champ
-      ? `<div class="bk-champ-label">Champion</div><div class="bk-champ-name">${f(champ)} ${sh(champ)}</div>`
-      : `<div style="opacity:.18">${ICONS.bracket_card}</div><div class="bk-champ-label" style="margin-top:4px">TBD</div>`
-    }
+    ${champ?`<div class="bk-champ-label">Champion</div><div class="bk-champ-name">${f(champ)} ${sh(champ)}</div>`:`<div style="opacity:.18">${ICONS.bracket_card}</div><div class="bk-champ-label" style="margin-top:4px">TBD</div>`}
   </div>`;
 
-  // ── All match cards ──
   const cards=[];
-  for(const r of['r32','r16','qf','sf','final']){
-    const n=sizes[r];
-    for(let i=0;i<n;i++)cards.push(mkCard(r,i));
-  }
-
+  for(const r of['r32','r16','qf','sf','final']){const n=sizes[r];for(let i=0;i<n;i++)cards.push(mkCard(r,i));}
   const svgHtml=`<svg style="position:absolute;top:0;left:0;width:${TOTAL_W}px;height:${TOTAL_H}px;overflow:visible" xmlns="http://www.w3.org/2000/svg"><g stroke="#d6d3cc" stroke-width="1.5" fill="none">${lines.join('')}</g></svg>`;
+
+  // ── Tab button style helper ──
+  const tabBtn=(key,label,sub)=>{const on=curTab===key;return`<button onclick="S.bracketTab='${key}';render()" style="flex-shrink:0;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid ${on?'var(--ink)':'var(--border)'};cursor:pointer;background:${on?'var(--ink)':'var(--surface)'};color:${on?'#fff':'var(--muted)'};transition:.1s">${label}${sub?` <span style="font-size:10px;opacity:.65">${sub}</span>`:''}</button>`;};
 
   return`
 ${rNav('bracket')}
 <div class="screen">
-  <div class="screen-hero">
+  <div class="screen-hero" style="padding-bottom:10px">
     <div class="screen-eyebrow">Phase 3 · Bracket</div>
     <h2 class="screen-h2">Knockout Bracket</h2>
-    <p class="screen-sub">Tap a team to advance them — scroll right to see all rounds</p>
     ${locked?`<div class="locked-pill">${ICONS.lock} Predictions are locked</div>`:''}
   </div>
+
+  <!-- ── Tab bar ── -->
+  <div style="display:flex;gap:7px;padding:8px 14px 10px;border-bottom:1px solid var(--border)">
+    ${tabBtn('r32','Round of 32',r32Picked+'/16')}
+    ${tabBtn('bracket','Full Bracket','')}
+  </div>
+
+  <!-- ── R32 grid view ── -->
+  ${curTab==='r32'?`
+  <div style="padding:14px 14px 100px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px">${locked?'Bracket is locked':'Tap a team to pick the winner of each match'}</div>
+    ${r32GridHtml}
+  </div>`:''}
+
+  <!-- ── Full bracket SVG tree ── -->
+  ${curTab==='bracket'?`
+  <div style="font-size:11px;color:var(--muted);padding:8px 14px 4px">Scroll right to see all rounds · tap teams to pick</div>
   <div class="bracket-scroll">
     <div class="bracket-tree" style="width:${TOTAL_W}px;height:${TOTAL_H+32}px;position:relative;padding-top:32px">
       ${labelHtml}
@@ -1689,7 +1710,8 @@ ${rNav('bracket')}
       ${cards.join('')}
       ${champHtml}
     </div>
-  </div>
+  </div>`:''}
+
   ${!locked?`
   <div class="action-bar">
     <button class="btn-primary${S.saving?' loading':''}" id="b-save-br">
