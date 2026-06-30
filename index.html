@@ -697,68 +697,138 @@ function completion(picks){
   return Math.round(done/total*100);
 }
 /* ── Bracket results views ─────────────── */
+
+// Returns set of all teams eliminated so far
+function eliminatedTeams(rb){
+  const out=new Set();
+  ROUNDS.forEach(k=>{
+    (rb[k]||[]).forEach((w,i)=>{
+      if(!w)return;
+      const[t1,t2]=matchTeams(k,i,rb,{});
+      if(t1&&t1!==w)out.add(t1);
+      if(t2&&t2!==w)out.add(t2);
+    });
+  });
+  return out;
+}
+
 function rBracketResultsUser(picks,results){
   const rb=results?.bracket||{};const pb=picks?.bracket||{};
-  const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
   const hasAny=ROUNDS.some(k=>(rb[k]||[]).some(Boolean));
   if(!hasAny)return'';
+  const elim=eliminatedTeams(rb);
+  const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
+
+  function matchCard(key,i){
+    const[t1,t2]=matchTeams(key,i,rb,picks||{});
+    const winner=(rb[key]||[])[i];const userPick=(pb[key]||[])[i];
+    if(!t1&&!t2)return'';
+    const isCorrect=winner&&userPick===winner;
+    const isWrong=winner&&userPick&&userPick!==winner;
+    const pts=POINTS[key];
+    const bdrColor=isCorrect?'#16a34a':isWrong?'#dc2626':'var(--border)';
+    return`<div style="flex-shrink:0;width:118px;background:var(--surface);border:2px solid ${bdrColor};border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:0">
+      <div style="display:flex;align-items:center;gap:5px;min-width:0">
+        <span style="font-size:18px;line-height:1;flex-shrink:0">${f(t1||'')}</span>
+        <span style="font-size:11px;font-weight:${winner===t1?700:400};color:${winner===t1?'var(--ink)':'var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh(t1||'TBD')}</span>
+        ${winner===t1?`<span style="margin-left:auto;font-size:10px;flex-shrink:0">⚽</span>`:''}
+      </div>
+      <div style="font-size:9px;color:var(--muted);text-align:center;margin:3px 0;letter-spacing:.05em">VS</div>
+      <div style="display:flex;align-items:center;gap:5px;min-width:0">
+        <span style="font-size:18px;line-height:1;flex-shrink:0">${f(t2||'')}</span>
+        <span style="font-size:11px;font-weight:${winner===t2?700:400};color:${winner===t2?'var(--ink)':'var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh(t2||'TBD')}</span>
+        ${winner===t2?`<span style="margin-left:auto;font-size:10px;flex-shrink:0">⚽</span>`:''}
+      </div>
+      <div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--border);text-align:center;font-size:10px;font-weight:700">
+        ${!winner?`<span style="color:var(--muted)">Pending</span>`:
+          !userPick?`<span style="color:var(--muted)">No pick</span>`:
+          isCorrect?`<span style="color:#16a34a">✓ +${pts} pts</span>`:
+          `<span style="color:#dc2626">✗ ${f(userPick)}${sh(userPick)}</span>`}
+      </div>
+    </div>`;
+  }
+
+  const playedDefs=defs.filter(({key})=>(rb[key]||[]).some(Boolean));
+  const champ=picks?.bracket?.champion;
+  const champElim=champ&&elim.has(champ);
+  const champWon=rb.champion&&champ===rb.champion;
+  const champWrong=rb.champion&&champ&&champ!==rb.champion;
+
   return`
   <div class="section-header" style="margin-top:8px"><span class="section-title">My Bracket</span></div>
-  ${defs.map(({key,label,pts,n})=>{
+  <div style="margin:0 16px 12px;background:${champWon?'linear-gradient(135deg,#fef3c7,#fde68a)':champElim?'var(--surface)':champWrong?'var(--surface)':'linear-gradient(135deg,#f0fdf4,#dcfce7)'};border:2px solid ${champWon?'#f59e0b':champElim||champWrong?'#dc2626':'#86efac'};border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:10px;font-weight:700;color:${champWon?'#92400e':'var(--muted)'};text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">🏆 My Champion Pick</div>
+      <div style="font-size:22px;font-weight:800;${champElim?'text-decoration:line-through;opacity:.5':''}color:${champWon?'#78350f':'var(--ink)'}">${champ?f(champ)+' '+champ:'—'}</div>
+      ${champElim?`<div style="font-size:10px;color:#dc2626;margin-top:2px;font-weight:600">❌ Eliminated</div>`:''}
+      ${champWon?`<div style="font-size:10px;color:#16a34a;margin-top:2px;font-weight:700">🎉 Champion! +${POINTS.champion} pts</div>`:''}
+      ${champWrong?`<div style="font-size:10px;color:#dc2626;margin-top:2px">Won: ${f(rb.champion)} ${rb.champion}</div>`:''}
+    </div>
+    ${!rb.champion&&!champElim?`<div style="font-size:32px;opacity:.15">🏆</div>`:''}
+  </div>
+  ${playedDefs.map(({key,label,n})=>{
     const rr=rb[key]||[];const rp=pb[key]||[];
-    const played=rr.filter(Boolean).length;if(!played)return'';
+    const played=rr.filter(Boolean).length;
     const correct=rr.filter((w,i)=>w&&rp[i]===w).length;
+    const roundLabel={r32:'Round of 32',r16:'Round of 16',qf:'Quarterfinals',sf:'Semifinals'}[key];
     return`
-    <details open style="margin:0 16px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r)">
-      <summary style="padding:12px 14px;font-size:12px;font-weight:700;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none">
-        <span style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${label}</span>
-        <span style="font-size:11px;color:var(--muted)">${correct}/${played} correct · +${pts}pts ▾</span>
-      </summary>
-      <div style="border-top:1px solid var(--border)">
-        ${Array.from({length:n},(_,i)=>{
-          const[t1,t2]=matchTeams(key,i,rb,picks||{});
-          const winner=rr[i];const userPick=rp[i];
-          if(!t1&&!t2)return'';
-          const isCorrect=winner&&userPick===winner;
-          const isWrong=winner&&userPick&&userPick!==winner;
-          return`
-          <div style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;${winner===t1?'font-weight:700':'color:var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f(t1||'')} ${t1||'TBD'}</div>
-              <div style="font-size:10px;color:var(--muted);line-height:1.4;margin:1px 0">vs</div>
-              <div style="font-size:12px;${winner===t2?'font-weight:700':'color:var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f(t2||'')} ${t2||'TBD'}</div>
-            </div>
-            <div style="text-align:right;flex-shrink:0;min-width:60px">
-              ${!winner?`<span style="font-size:11px;color:var(--muted)">Pending</span>`:
-                isCorrect?`<div style="color:#16a34a;font-size:16px;font-weight:700">✓</div><div style="font-size:9px;color:#16a34a">+${pts} pts</div>`:
-                isWrong?`<div style="color:#dc2626;font-size:16px;font-weight:700">✗</div><div style="font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f(userPick)} ${sh(userPick)}</div>`:
-                `<div style="font-size:10px;color:var(--muted)">Not<br>picked</div>`}
-            </div>
-          </div>`;
-        }).join('')}
+    <div style="margin:0 16px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${roundLabel}</span>
+        <span style="font-size:11px;color:var(--muted)">${correct}/${played} correct</span>
       </div>
-    </details>`;
-  }).join('')}
-  ${(picks?.bracket?.champion||rb.champion)?`
-  <div style="margin:0 16px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;justify-content:space-between">
-    <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Champion</div>
-    <div style="font-size:14px;font-weight:700">${picks?.bracket?.champion?f(picks.bracket.champion)+' '+picks.bracket.champion:'—'}</div></div>
-    ${rb.champion?picks?.bracket?.champion===rb.champion?
-      `<div style="text-align:center"><div style="color:#16a34a;font-size:20px">✓</div><div style="font-size:9px;color:#16a34a">+${POINTS.champion} pts</div></div>`:
-      `<div style="text-align:right"><div style="color:#dc2626;font-size:16px">✗</div><div style="font-size:9px;color:var(--muted)">${f(rb.champion)} ${sh(rb.champion)}</div></div>`:
-    `<div style="font-size:11px;color:var(--muted)">TBD</div>`}
-  </div>`:''}`;
+      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">
+        ${Array.from({length:n},(_,i)=>matchCard(key,i)).join('')}
+      </div>
+    </div>`;
+  }).join('')}`;
 }
 
 function rBracketResultsAll(users,results){
   const rb=results?.bracket||{};
-  const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
   const hasAny=ROUNDS.some(k=>(rb[k]||[]).some(Boolean));
   if(!hasAny)return`<div class="no-data" style="padding:40px 16px">No bracket results yet</div>`;
-  return defs.map(({key,label,pts,n})=>{
+  const elim=eliminatedTeams(rb);
+  const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
+
+  // Champion & Final picks section
+  const finalA=rb.sf?.[0]||null;const finalB=rb.sf?.[1]||null;
+  const champSection=`
+  <div style="padding:14px 16px 10px;border-bottom:2px solid var(--border)">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">🏆 Champion &amp; Final Picks</div>
+    ${finalA&&finalB?`<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Final: <strong style="color:var(--ink)">${f(finalA)} ${finalA}</strong> vs <strong style="color:var(--ink)">${f(finalB)} ${finalB}</strong></div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${users.map(u=>{
+        const champ=u.bracket?.champion;
+        const isElim=champ&&elim.has(champ);
+        const isWon=rb.champion&&champ===rb.champion;
+        const isFinalPick=champ&&(champ===finalA||champ===finalB);
+        const sfA=rb.qf?.[0]||null;const sfB=rb.qf?.[1]||null;
+        // predicted finalists = users sf picks
+        const uSF0=(u.bracket?.sf||[])[0];const uSF1=(u.bracket?.sf||[])[1];
+        const uSFElim0=uSF0&&elim.has(uSF0);const uSFElim1=uSF1&&elim.has(uSF1);
+        return`
+        <div style="background:var(--surface);border:2px solid ${isWon?'#f59e0b':isElim?'#dc2626':isFinalPick?'#16a34a':'var(--border)'};border-radius:12px;padding:10px 12px;min-width:100px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:5px">${u.username}</div>
+          <div style="font-size:15px;font-weight:800;${isElim?'text-decoration:line-through;opacity:.4':''}">
+            ${champ?f(champ)+' '+sh(champ):'—'}
+          </div>
+          ${isWon?`<div style="font-size:9px;color:#f59e0b;font-weight:700;margin-top:2px">🏆 Champion!</div>`:''}
+          ${isElim&&!isWon?`<div style="font-size:9px;color:#dc2626;font-weight:600;margin-top:2px">❌ Out</div>`:''}
+          ${isFinalPick&&!isWon?`<div style="font-size:9px;color:#16a34a;font-weight:600;margin-top:2px">✓ In final</div>`:''}
+          ${(uSF0||uSF1)?`<div style="font-size:9px;color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:3px">Final picks:<br>
+            <span style="${uSFElim0?'text-decoration:line-through;opacity:.5':''}">${uSF0?f(uSF0)+' '+sh(uSF0):'?'}</span>${uSFElim0?` <span style="color:#dc2626;font-size:8px">out</span>`:''}<br>
+            <span style="${uSFElim1?'text-decoration:line-through;opacity:.5':''}">${uSF1?f(uSF1)+' '+sh(uSF1):'?'}</span>${uSFElim1?` <span style="color:#dc2626;font-size:8px">out</span>`:''}
+          </div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  const matchRows=defs.map(({key,label,pts,n})=>{
     const rr=rb[key]||[];const played=rr.filter(Boolean).length;if(!played)return'';
     return`
-    <div style="margin-bottom:4px">
+    <div>
       <div style="padding:8px 16px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface)">${label} · +${pts} pts each</div>
       ${Array.from({length:n},(_,i)=>{
         const[t1,t2]=matchTeams(key,i,rb,{});const winner=rr[i];
@@ -769,14 +839,14 @@ function rBracketResultsAll(users,results){
         return`
         <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">
           <div style="flex:1;min-width:0">
-            <div style="font-size:12px;${winner===t1?'font-weight:700':'color:var(--muted)'}">${f(t1||'')} ${t1||'TBD'}</div>
-            <div style="font-size:10px;color:var(--muted);line-height:1.4;margin:1px 0">vs</div>
-            <div style="font-size:12px;${winner===t2?'font-weight:700':'color:var(--muted)'}">${f(t2||'')} ${t2||'TBD'}</div>
+            <div style="display:flex;align-items:center;gap:4px"><span style="font-size:15px">${f(t1||'')}</span><span style="font-size:12px;font-weight:${winner===t1?700:400};color:${winner===t1?'var(--ink)':'var(--muted)'}">${t1||'TBD'}</span>${winner===t1?`<span style="font-size:9px">⚽</span>`:''}</div>
+            <div style="font-size:9px;color:var(--muted);margin:2px 4px;letter-spacing:.04em">VS</div>
+            <div style="display:flex;align-items:center;gap:4px"><span style="font-size:15px">${f(t2||'')}</span><span style="font-size:12px;font-weight:${winner===t2?700:400};color:${winner===t2?'var(--ink)':'var(--muted)'}">${t2||'TBD'}</span>${winner===t2?`<span style="font-size:9px">⚽</span>`:''}</div>
           </div>
-          <div style="min-width:0;max-width:55%;font-size:10px;line-height:1.5">
+          <div style="min-width:0;max-width:52%;font-size:10px;line-height:1.6">
             ${!winner?`<span style="color:var(--muted)">Pending</span>`:`
-            ${right.length?`<div style="color:#16a34a;font-weight:600">✓ ${right.map(u=>`<span style="background:#dcfce7;border-radius:3px;padding:0 3px">${u.username}</span>`).join(' ')}</div>`:''}
-            ${wrong.length?`<div style="color:#dc2626;font-weight:600">✗ ${wrong.map(u=>`<span style="background:#fee2e2;border-radius:3px;padding:0 3px">${u.username}</span>`).join(' ')}</div>`:''}
+            ${right.length?`<div><span style="color:#16a34a;font-weight:700">✓ </span>${right.map(u=>`<span style="background:#dcfce7;border-radius:4px;padding:1px 5px;font-weight:600">${u.username}</span>`).join(' ')}</div>`:''}
+            ${wrong.length?`<div><span style="color:#dc2626;font-weight:700">✗ </span>${wrong.map(u=>`<span style="background:#fee2e2;border-radius:4px;padding:1px 5px">${u.username}</span>`).join(' ')}</div>`:''}
             ${none.length?`<div style="color:var(--muted)">— ${none.map(u=>u.username).join(', ')}</div>`:''}
             `}
           </div>
@@ -784,6 +854,8 @@ function rBracketResultsAll(users,results){
       }).join('')}
     </div>`;
   }).join('');
+
+  return champSection+matchRows;
 }
 
 function scoreUser(picks,results){
