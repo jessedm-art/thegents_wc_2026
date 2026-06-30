@@ -818,17 +818,17 @@ function rBracketTree(picks,results){
   if(!isBracketOpen())return'';
   const rb=results?.bracket||{};const pb=picks?.bracket||{};
 
-  // ── Natural-pixel dimensions, horizontal scroll — same approach as ESPN ──
-  // Boxes render at readable size; container scrolls horizontally on narrow screens.
-  const TH=15,  // row height in px
-        BH=TH*2, // box height
-        BW=96,   // box width
-        GAP=14,  // gap between round columns
-        CW=BW+GAP; // column stride
-  const U=28;        // vertical spacing per R32 slot — H = 16*U = 448px
-  const H=16*U;      // 448
+  // ── Natural-pixel dimensions, horizontal + vertical scroll ──
+  // Boxes at comfortable readable size. U must be > BH to avoid overlap.
+  const TH=20,       // row height — gives ~14px usable font area
+        BH=TH*2,     // box height = 40px
+        BW=108,      // box width
+        GAP=18,      // gap between round columns
+        CW=BW+GAP;   // column stride = 126px
+  const U=52;        // vertical spacing per R32 slot (12px breathing room above/below box)
+  const H=16*U;      // 832px total — scrollable vertically
   const RX=[0,CW,2*CW,3*CW,4*CW]; // x-left of each column
-  const SVG_W=RX[4]+BW+56; // +56 for champion emoji + trophy right of Final
+  const SVG_W=RX[4]+BW+60; // +60 for champion emoji + trophy right of Final
   const SVG_H=H;
 
   const roundKeys=['r32','r16','qf','sf'];
@@ -872,26 +872,26 @@ function rBracketTree(picks,results){
   function drawBox(rx,by,t1,t2,w,up){
     const ok=!!(w&&up===w),ng=!!(w&&up&&up!==w);
     const bc=ok?'#16a34a':ng?'#dc2626':'var(--border)';
-    const sw=ok||ng?'1.5':'1';
-    bx.push(`<rect x="${rx}" y="${by}" width="${BW}" height="${BH}" rx="4" fill="var(--surface)" stroke="${bc}" stroke-width="${sw}"/>`);
-    bx.push(`<line x1="${rx+3}" y1="${by+TH}" x2="${rx+BW-3}" y2="${by+TH}" stroke="${bc}" stroke-width=".5" stroke-dasharray="2,2"/>`);
+    const sw=ok||ng?'2':'1.5';
+    bx.push(`<rect x="${rx}" y="${by}" width="${BW}" height="${BH}" rx="6" fill="var(--surface)" stroke="${bc}" stroke-width="${sw}"/>`);
+    bx.push(`<line x1="${rx+4}" y1="${by+TH}" x2="${rx+BW-4}" y2="${by+TH}" stroke="var(--border)" stroke-width="1"/>`);
     [t1,t2].forEach((t,ti)=>{
       const ty=by+ti*TH;
       const isW=!!(w&&w===t),isL=!!(w&&t&&!isW);
-      if(isW)bx.push(`<rect x="${rx+1}" y="${ty+1}" width="${BW-2}" height="${TH-2}" rx="3" fill="${ok?'rgba(22,163,74,.12)':'rgba(100,116,139,.09)'}"/>`);
+      if(isW)bx.push(`<rect x="${rx+2}" y="${ty+2}" width="${BW-4}" height="${TH-4}" rx="4" fill="${ok?'rgba(22,163,74,.13)':'rgba(100,116,139,.1)'}"/>`);
       if(t){
-        bx.push(`<text x="${rx+3}" y="${ty+TH-3}" font-size="11" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(t)}</text>`);
+        bx.push(`<text x="${rx+5}" y="${ty+TH-4}" font-size="13" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(t)}</text>`);
         const nc=isL?'var(--border2)':'var(--ink)';
-        const fw=isW?'600':'400';
-        const deco=isL?'text-decoration:line-through;opacity:.5;':'';
-        bx.push(`<text x="${rx+18}" y="${ty+TH-3}" font-size="9" fill="${nc}" font-weight="${fw}" style="${deco}">${sh(t)}</text>`);
+        const fw=isW?'700':'400';
+        const deco=isL?'opacity:.4;':'';
+        bx.push(`<text x="${rx+23}" y="${ty+TH-5}" font-size="11" fill="${nc}" font-weight="${fw}" style="${deco}">${sh(t)}</text>`);
         if(up===t){
           const dc=!w?'var(--muted)':ok?'#16a34a':'#dc2626';
-          bx.push(`<circle cx="${rx+BW-7}" cy="${ty+Math.round(TH/2)}" r="4" fill="${dc}"/>`);
-          if(w)bx.push(`<text x="${rx+BW-10}" y="${ty+Math.round(TH/2)+3.5}" font-size="6" font-weight="700" fill="white">${ok?'✓':'✗'}</text>`);
+          bx.push(`<circle cx="${rx+BW-9}" cy="${ty+Math.round(TH/2)}" r="5" fill="${dc}"/>`);
+          if(w)bx.push(`<text x="${rx+BW-12.5}" y="${ty+Math.round(TH/2)+4}" font-size="7" font-weight="700" fill="white">${ok?'✓':'✗'}</text>`);
         }
       }else{
-        bx.push(`<text x="${rx+4}" y="${ty+TH-3}" font-size="9" fill="var(--muted)">TBD</text>`);
+        bx.push(`<text x="${rx+5}" y="${ty+TH-5}" font-size="10" fill="var(--muted)">TBD</text>`);
       }
     });
   }
@@ -910,8 +910,8 @@ function rBracketTree(picks,results){
   const champ=rb.champion;
   const champY=Math.round(ym(4,0));
   if(champ){
-    bx.push(`<text x="${RX[4]+BW+5}" y="${champY+2}" font-size="18" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(champ)}</text>`);
-    bx.push(`<text x="${RX[4]+BW+6}" y="${champY+18}" font-size="10" font-weight="700" fill="var(--amber)">🏆</text>`);
+    bx.push(`<text x="${RX[4]+BW+6}" y="${champY+4}" font-size="22" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(champ)}</text>`);
+    bx.push(`<text x="${RX[4]+BW+7}" y="${champY+24}" font-size="14" font-weight="700" fill="var(--amber)">🏆</text>`);
   }
 
   // ── 3rd place section (below main bracket as HTML strip) ──
@@ -943,10 +943,10 @@ function rBracketTree(picks,results){
   const rLabels=['R32','R16','QF','SF','Final'];
   return`
 <div class="section-header" style="margin-top:4px"><span class="section-title">Tournament Bracket</span></div>
-<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 14px 4px">
-  <div style="min-width:${SVG_W}px">
-    <div style="display:flex;margin-bottom:4px;padding-right:56px">
-      ${rLabels.map((l,ri)=>`<div style="width:${CW}px;flex-shrink:0;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${l}</div>`).join('')}
+<div style="overflow:auto;-webkit-overflow-scrolling:touch;padding:0 14px 4px;max-height:540px">
+  <div style="min-width:${SVG_W}px;padding-bottom:4px">
+    <div style="display:flex;margin-bottom:6px">
+      ${rLabels.map(l=>`<div style="width:${CW}px;flex-shrink:0;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${l}</div>`).join('')}
     </div>
     <svg width="${SVG_W}" height="${SVG_H}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
       ${ln.join('')}
@@ -955,10 +955,10 @@ function rBracketTree(picks,results){
     ${thirdHtml}
   </div>
 </div>
-<div style="display:flex;gap:12px;padding:4px 14px 12px;font-size:10px;color:var(--muted)">
-  <span style="display:flex;align-items:center;gap:4px"><svg width="8" height="8" style="overflow:visible;display:inline-block"><circle cx="4" cy="4" r="3.5" fill="#16a34a"/></svg>your pick ✓</span>
-  <span style="display:flex;align-items:center;gap:4px"><svg width="8" height="8" style="overflow:visible;display:inline-block"><circle cx="4" cy="4" r="3.5" fill="#dc2626"/></svg>your pick ✗</span>
-  <span style="display:flex;align-items:center;gap:4px"><svg width="8" height="8" style="overflow:visible;display:inline-block"><circle cx="4" cy="4" r="3.5" fill="var(--muted)"/></svg>pending</span>
+<div style="display:flex;gap:14px;padding:6px 14px 12px;font-size:11px;color:var(--muted)">
+  <span style="display:flex;align-items:center;gap:5px"><svg width="9" height="9" style="overflow:visible;display:inline-block"><circle cx="4.5" cy="4.5" r="4" fill="#16a34a"/></svg>your pick ✓</span>
+  <span style="display:flex;align-items:center;gap:5px"><svg width="9" height="9" style="overflow:visible;display:inline-block"><circle cx="4.5" cy="4.5" r="4" fill="#dc2626"/></svg>your pick ✗</span>
+  <span style="display:flex;align-items:center;gap:5px"><svg width="9" height="9" style="overflow:visible;display:inline-block"><circle cx="4.5" cy="4.5" r="4" fill="var(--muted)"/></svg>pending</span>
 </div>`;
 }
 
