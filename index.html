@@ -434,7 +434,7 @@ html,body{height:100%;background:var(--bg);color:var(--ink);font-family:'Inter',
 .how-to-arrow{transform:rotate(180deg);}
 details:not([open]) .how-to-arrow{transform:rotate(0deg);}
 details summary::-webkit-details-marker{display:none;}
-.warn-card{background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:12px 14px;margin:0 16px 14px;font-size:13px;color:#78350f;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.warn-card{background:var(--gold-light);border:1px solid var(--amber);border-radius:var(--rs);padding:12px 14px;margin:0 16px 14px;font-size:13px;color:var(--gold);display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .no-data{padding:40px 16px;text-align:center;color:var(--muted);font-size:13px;letter-spacing:.03em;}
 .divider{height:1px;background:var(--border);margin:8px 0;}
 .bracket-round-tabs{display:flex;gap:6px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);}
@@ -580,6 +580,8 @@ const R32_SLOTS=[
 const ROUNDS=['r32','r16','qf','sf'];
 // Approximate match dates for R32 slots (4 per day, slots 0-3=Jun28, 4-7=Jun29, 8-11=Jun30, 12-15=Jul1)
 const R32_DATES=['2026-06-28','2026-06-28','2026-06-28','2026-06-28','2026-06-29','2026-06-29','2026-06-29','2026-06-29','2026-06-30','2026-06-30','2026-06-30','2026-06-30','2026-07-01','2026-07-01','2026-07-01','2026-07-01'];
+// Kickoff times in UTC — 4 games per day (12pm / 3pm / 6pm / 9pm ET = UTC-4)
+const R32_KICKOFFS=['2026-06-28T16:00:00Z','2026-06-28T19:00:00Z','2026-06-28T22:00:00Z','2026-06-29T01:00:00Z','2026-06-29T16:00:00Z','2026-06-29T19:00:00Z','2026-06-29T22:00:00Z','2026-06-30T01:00:00Z','2026-06-30T16:00:00Z','2026-06-30T19:00:00Z','2026-06-30T22:00:00Z','2026-07-01T01:00:00Z','2026-07-01T16:00:00Z','2026-07-01T19:00:00Z','2026-07-01T22:00:00Z','2026-07-02T01:00:00Z'];
 const ROUND_LABELS={r32:'Round of 32',r16:'Round of 16',qf:'Quarterfinals',sf:'Semifinals'};
 const ROUND_SIZES={r32:16,r16:8,qf:4,sf:2};
 const POINTS={group:3,wildcard:5,r32:5,r16:10,qf:15,sf:20,champion:50};
@@ -814,20 +816,65 @@ function eliminatedTeams(rb){
 
 function rBracketResultsUser(picks,results){
   const rb=results?.bracket||{};const pb=picks?.bracket||{};
-  const hasAny=ROUNDS.some(k=>(rb[k]||[]).some(Boolean));
+  const hasAny=isBracketOpen()||ROUNDS.some(k=>(rb[k]||[]).some(Boolean));
   if(!hasAny)return'';
   const elim=eliminatedTeams(rb);
   const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
 
-  function matchCard(key,i,fullWidth=false){
+  // ── Dedicated R32 matchup card ────────────────────────
+  function r32Card(i){
+    const[t1,t2]=matchTeams('r32',i,rb,picks||{});
+    const winner=(rb.r32||[])[i];
+    const userPick=(pb.r32||[])[i];
+    if(!t1&&!t2)return'';
+    const ko=new Date(R32_KICKOFFS[i]);
+    const now=new Date();
+    const isLive=!winner&&now>=ko;
+    const isPending=!winner&&now<ko;
+    const isCorrect=winner&&userPick===winner;
+    const isWrong=winner&&userPick&&userPick!==winner;
+    const bdrColor=isCorrect?'var(--green)':isWrong?'var(--red)':'var(--border)';
+    const bdrW=isCorrect||isWrong?'2px':'1.5px';
+    const timeStr=ko.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+    const centerLabel=isLive?'🟢 Live':isPending?timeStr:'';
+    const pickBadge=(t)=>{
+      if(!userPick||userPick!==t)return'';
+      if(!winner)return`<span style="font-size:8px;background:var(--bg2);color:var(--muted);padding:1px 4px;border-radius:4px;font-weight:600;margin-left:auto;flex-shrink:0">pick</span>`;
+      if(winner===t)return`<span style="font-size:8px;background:var(--green-light);color:var(--green);padding:1px 5px;border-radius:4px;font-weight:700;margin-left:auto;flex-shrink:0">✓</span>`;
+      return`<span style="font-size:8px;background:var(--red-light);color:var(--red);padding:1px 5px;border-radius:4px;font-weight:700;margin-left:auto;flex-shrink:0">✗</span>`;
+    };
+    const teamRow=(t)=>{
+      if(!t)return'';
+      const isW=winner===t;const isL=winner&&!isW;
+      return`<div style="display:flex;align-items:center;gap:5px;min-width:0">
+        <span style="font-size:17px;line-height:1;flex-shrink:0">${f(t)}</span>
+        <span style="font-size:11px;font-weight:${isW?700:400};color:${isL?'var(--muted)':'var(--ink)'};flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isL?'opacity:.45':''};">${sh(t)}</span>
+        ${isW?`<span style="font-size:10px;flex-shrink:0">⚽</span>`:''}
+        ${pickBadge(t)}
+      </div>`;
+    };
+    return`<div style="background:var(--surface);border:${bdrW} solid ${bdrColor};border-radius:11px;padding:9px 10px;display:flex;flex-direction:column;gap:3px">
+      ${teamRow(t1)}
+      <div style="display:flex;align-items:center;gap:4px;margin:1px 0">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        ${centerLabel?`<span style="font-size:8px;color:var(--muted);white-space:nowrap;padding:0 3px">${centerLabel}</span>`:`<span style="font-size:8px;color:var(--border2);padding:0 3px">·</span>`}
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      ${teamRow(t2)}
+      ${winner&&!userPick?`<div style="font-size:8px;color:var(--muted);text-align:center;margin-top:3px;border-top:1px solid var(--border);padding-top:3px">no pick</div>`:''}
+    </div>`;
+  }
+
+  // ── Shared card for R16/QF/SF ─────────────────────────
+  function matchCard(key,i){
     const[t1,t2]=matchTeams(key,i,rb,picks||{});
     const winner=(rb[key]||[])[i];const userPick=(pb[key]||[])[i];
     if(!t1&&!t2)return'';
     const isCorrect=winner&&userPick===winner;
     const isWrong=winner&&userPick&&userPick!==winner;
     const pts=POINTS[key];
-    const bdrColor=isCorrect?'#16a34a':isWrong?'#dc2626':'var(--border)';
-    return`<div style="${fullWidth?'width:100%':'flex-shrink:0;width:118px'};background:var(--surface);border:2px solid ${bdrColor};border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:0">
+    const bdrColor=isCorrect?'var(--green)':isWrong?'var(--red)':'var(--border)';
+    return`<div style="flex-shrink:0;width:118px;background:var(--surface);border:2px solid ${bdrColor};border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:0">
       <div style="display:flex;align-items:center;gap:5px;min-width:0">
         <span style="font-size:18px;line-height:1;flex-shrink:0">${f(t1||'')}</span>
         <span style="font-size:11px;font-weight:${winner===t1?700:400};color:${winner===t1?'var(--ink)':'var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh(t1||'TBD')}</span>
@@ -842,13 +889,13 @@ function rBracketResultsUser(picks,results){
       <div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--border);text-align:center;font-size:10px;font-weight:700">
         ${!winner?`<span style="color:var(--muted)">Pending</span>`:
           !userPick?`<span style="color:var(--muted)">No pick</span>`:
-          isCorrect?`<span style="color:#16a34a">✓ +${pts} pts</span>`:
-          `<span style="color:#dc2626">✗ ${f(userPick)}${sh(userPick)}</span>`}
+          isCorrect?`<span style="color:var(--green)">✓ +${pts} pts</span>`:
+          `<span style="color:var(--red)">✗ ${f(userPick)}${sh(userPick)}</span>`}
       </div>
     </div>`;
   }
 
-  const playedDefs=defs.filter(({key})=>(rb[key]||[]).some(Boolean));
+  const playedDefs=defs.filter(({key})=>key==='r32'?isBracketOpen():(rb[key]||[]).some(Boolean));
   const champ=picks?.bracket?.champion;
   const champElim=champ&&elim.has(champ);
   const champWon=rb.champion&&champ===rb.champion;
@@ -856,13 +903,13 @@ function rBracketResultsUser(picks,results){
 
   return`
   <div class="section-header" style="margin-top:8px"><span class="section-title">My Bracket</span></div>
-  <div style="margin:0 16px 12px;background:${champWon?'linear-gradient(135deg,#fef3c7,#fde68a)':champElim?'var(--surface)':champWrong?'var(--surface)':'linear-gradient(135deg,#f0fdf4,#dcfce7)'};border:2px solid ${champWon?'#f59e0b':champElim||champWrong?'#dc2626':'#86efac'};border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+  <div style="margin:0 16px 12px;background:${champWon?'var(--gold-light)':champElim?'var(--surface)':champWrong?'var(--surface)':'var(--green-light)'};border:2px solid ${champWon?'var(--amber)':champElim||champWrong?'var(--red)':'var(--green)'};border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
     <div>
-      <div style="font-size:10px;font-weight:700;color:${champWon?'#92400e':'var(--muted)'};text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">🏆 My Champion Pick</div>
-      <div style="font-size:22px;font-weight:800;${champElim?'text-decoration:line-through;opacity:.5':''}color:${champWon?'#78350f':'var(--ink)'}">${champ?f(champ)+' '+champ:'—'}</div>
-      ${champElim?`<div style="font-size:10px;color:#dc2626;margin-top:2px;font-weight:600">❌ Eliminated</div>`:''}
-      ${champWon?`<div style="font-size:10px;color:#16a34a;margin-top:2px;font-weight:700">🎉 Champion! +${POINTS.champion} pts</div>`:''}
-      ${champWrong?`<div style="font-size:10px;color:#dc2626;margin-top:2px">Won: ${f(rb.champion)} ${rb.champion}</div>`:''}
+      <div style="font-size:10px;font-weight:700;color:${champWon?'var(--gold)':'var(--muted)'};text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">🏆 My Champion Pick</div>
+      <div style="font-size:22px;font-weight:800;${champElim?'text-decoration:line-through;opacity:.5':''}color:${champWon?'var(--gold)':'var(--ink)'}">${champ?f(champ)+' '+champ:'—'}</div>
+      ${champElim?`<div style="font-size:10px;color:var(--red);margin-top:2px;font-weight:600">❌ Eliminated</div>`:''}
+      ${champWon?`<div style="font-size:10px;color:var(--green);margin-top:2px;font-weight:700">🎉 Champion! +${POINTS.champion} pts</div>`:''}
+      ${champWrong?`<div style="font-size:10px;color:var(--red);margin-top:2px">Won: ${f(rb.champion)} ${rb.champion}</div>`:''}
     </div>
     ${!rb.champion&&!champElim?`<div style="font-size:32px;opacity:.15">🏆</div>`:''}
   </div>
@@ -877,8 +924,19 @@ function rBracketResultsUser(picks,results){
       for(let i=0;i<16;i++){const d=R32_DATES[i];if(!byDate[d])byDate[d]=[];byDate[d].push(i);}
       cardsHTML=Object.keys(byDate).sort().map(d=>{
         const dLabel=new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-        const cards=byDate[d].map(i=>matchCard(key,i,true)).filter(Boolean).join('');
-        return cards?`<div style="margin-bottom:10px"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${dLabel}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${cards}</div></div>`:'';
+        const dayIdxs=byDate[d];
+        const dayResults=(rb.r32||[]);
+        const dayCorrect=dayIdxs.filter(i=>dayResults[i]&&(pb.r32||[])[i]===dayResults[i]).length;
+        const dayPlayed=dayIdxs.filter(i=>!!dayResults[i]).length;
+        const cards=dayIdxs.map(i=>r32Card(i)).filter(Boolean).join('');
+        if(!cards)return'';
+        return`<div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+            <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${dLabel}</span>
+            ${dayPlayed>0?`<span style="font-size:9px;color:var(--muted)">${dayCorrect}/${dayPlayed} correct</span>`:''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${cards}</div>
+        </div>`;
       }).join('');
     }else{
       cardsHTML=`<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">${Array.from({length:n},(_,i)=>matchCard(key,i)).join('')}</div>`;
@@ -918,17 +976,17 @@ function rBracketResultsAll(users,results){
         const uSF0=(u.bracket?.sf||[])[0];const uSF1=(u.bracket?.sf||[])[1];
         const uSFElim0=uSF0&&elim.has(uSF0);const uSFElim1=uSF1&&elim.has(uSF1);
         return`
-        <div style="background:var(--surface);border:2px solid ${isWon?'#f59e0b':isElim?'#dc2626':isFinalPick?'#16a34a':'var(--border)'};border-radius:12px;padding:10px 12px;min-width:100px">
+        <div style="background:var(--surface);border:2px solid ${isWon?'var(--amber)':isElim?'var(--red)':isFinalPick?'var(--green)':'var(--border)'};border-radius:12px;padding:10px 12px;min-width:100px">
           <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:5px">${u.username}</div>
           <div style="font-size:15px;font-weight:800;${isElim?'text-decoration:line-through;opacity:.4':''}">
             ${champ?f(champ)+' '+sh(champ):'—'}
           </div>
-          ${isWon?`<div style="font-size:9px;color:#f59e0b;font-weight:700;margin-top:2px">🏆 Champion!</div>`:''}
-          ${isElim&&!isWon?`<div style="font-size:9px;color:#dc2626;font-weight:600;margin-top:2px">❌ Out</div>`:''}
-          ${isFinalPick&&!isWon?`<div style="font-size:9px;color:#16a34a;font-weight:600;margin-top:2px">✓ In final</div>`:''}
+          ${isWon?`<div style="font-size:9px;color:var(--amber);font-weight:700;margin-top:2px">🏆 Champion!</div>`:''}
+          ${isElim&&!isWon?`<div style="font-size:9px;color:var(--red);font-weight:600;margin-top:2px">❌ Out</div>`:''}
+          ${isFinalPick&&!isWon?`<div style="font-size:9px;color:var(--green);font-weight:600;margin-top:2px">✓ In final</div>`:''}
           ${(uSF0||uSF1)?`<div style="font-size:9px;color:var(--muted);margin-top:4px;border-top:1px solid var(--border);padding-top:3px">Final picks:<br>
-            <span style="${uSFElim0?'text-decoration:line-through;opacity:.5':''}">${uSF0?f(uSF0)+' '+sh(uSF0):'?'}</span>${uSFElim0?` <span style="color:#dc2626;font-size:8px">out</span>`:''}<br>
-            <span style="${uSFElim1?'text-decoration:line-through;opacity:.5':''}">${uSF1?f(uSF1)+' '+sh(uSF1):'?'}</span>${uSFElim1?` <span style="color:#dc2626;font-size:8px">out</span>`:''}
+            <span style="${uSFElim0?'text-decoration:line-through;opacity:.5':''}">${uSF0?f(uSF0)+' '+sh(uSF0):'?'}</span>${uSFElim0?` <span style="color:var(--red);font-size:8px">out</span>`:''}<br>
+            <span style="${uSFElim1?'text-decoration:line-through;opacity:.5':''}">${uSF1?f(uSF1)+' '+sh(uSF1):'?'}</span>${uSFElim1?` <span style="color:var(--red);font-size:8px">out</span>`:''}
           </div>`:''}
         </div>`;
       }).join('')}
@@ -1258,7 +1316,7 @@ ${rNav('home')}
     <!-- Champion pick in hero -->
     ${myChamp?`
     <div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;margin:10px 0 6px">
-      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fef9c3,#fde68a);border:2.5px solid #f59e0b;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 4px 20px rgba(245,158,11,.25),0 0 0 6px rgba(245,158,11,.08)">
+      <div style="width:72px;height:72px;border-radius:50%;background:var(--gold-light);border:2.5px solid var(--amber);display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 4px 20px rgba(0,0,0,.12),0 0 0 6px rgba(0,0,0,.05)">
         ${f(myChamp)}
       </div>
       ${hasRes&&myRank?`
@@ -1288,7 +1346,7 @@ ${rNav('home')}
   </div>
 
   ${!isBracketOpen()?`
-  <div style="margin:12px 14px 0;background:var(--gold-light);border:1px solid #fde68a;border-radius:var(--rs);padding:10px 14px;font-size:12px;color:#78350f;display:flex;align-items:center;gap:8px;">
+  <div style="margin:12px 14px 0;background:var(--gold-light);border:1px solid var(--amber);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:var(--gold);display:flex;align-items:center;gap:8px;">
     <span style="font-size:15px">📅</span>
     <span><strong>Phase 3 bracket opens June 28</strong> — wildcards confirmed after group stage ends Jun 27${bracketCountdown()?` · ${bracketCountdown()} away`:''}</span>
   </div>`:''}
@@ -1394,8 +1452,8 @@ ${rNav('home')}
           <div style="font-size:9px;color:${s.sub};display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:wrap;line-height:1.3;max-width:100%;padding:0 1px">
             ${isChampion?'<span>🏆</span>':champElim?'<span>💀</span>':''}
             <span style="${champElim&&!isChampion?'text-decoration:line-through;opacity:.55;':''}overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:68px">${champ}</span>
-            ${champElim&&!isChampion?`<span style="font-size:7px;background:#fecaca;color:#dc2626;padding:1px 3px;border-radius:3px;font-weight:700;flex-shrink:0">OUT</span>`:''}
-            ${isChampion?`<span style="font-size:7px;background:#bbf7d0;color:#16a34a;padding:1px 3px;border-radius:3px;font-weight:700;flex-shrink:0">🏆</span>`:''}
+            ${champElim&&!isChampion?`<span style="font-size:7px;background:var(--red-light);color:var(--red);padding:1px 3px;border-radius:3px;font-weight:700;flex-shrink:0">OUT</span>`:''}
+            ${isChampion?`<span style="font-size:7px;background:var(--green-light);color:var(--green);padding:1px 3px;border-radius:3px;font-weight:700;flex-shrink:0">🏆</span>`:''}
           </div>`:`<div style="font-size:9px;color:${s.sub}">—</div>`}
 
         </div>
