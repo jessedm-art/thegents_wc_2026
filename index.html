@@ -1603,6 +1603,7 @@ ${rNav('leaderboard')}
         ${S.saving?'Fetching…':'Fetch Live Results'}
       </button>
       ${S.allData?.results?.lastFetched?`<div style="font-size:11px;color:var(--muted)">Last synced ${new Date(S.allData.results.lastFetched).toLocaleString()}</div>`:''}
+      ${S.allData?.results?.bracket?`<details style="margin-top:8px"><summary style="font-size:11px;color:var(--muted);cursor:pointer;user-select:none">🔍 Stored bracket data (debug)</summary><pre style="font-size:10px;overflow-x:auto;margin-top:6px;background:var(--surface-2,#f5f5f5);padding:8px;border-radius:6px;white-space:pre-wrap;word-break:break-all">${JSON.stringify(S.allData.results.bracket,null,2)}</pre></details>`:''}
       ${!S.apiKey?`<div style="font-size:11px;color:var(--muted);margin-top:4px">Requires a free API key — add it in <button class="btn-link" onclick="nav('setup')" style="font-size:11px">Settings →</button></div>`:'<div style="font-size:11px;color:var(--green)">API key configured ✓</div>'}
     </div>
 
@@ -2025,9 +2026,13 @@ async function fetchLiveResults(){
     const STAGE_MAP=[['ROUND_OF_32','r32',16],['ROUND_OF_16','r16',8],['QUARTER_FINALS','qf',4],['SEMI_FINALS','sf',2]];
     for(const[apiStage,key,size]of STAGE_MAP){
       const mRes=await pFetch(`${base}/competitions/WC/matches?stage=${apiStage}`);
-      if(!mRes.ok)break;
+      if(!mRes.ok){console.warn('[WC2026] stage fetch failed:',apiStage,mRes.status);break;}
       const mData=await mRes.json();
-      const done=(mData.matches||[]).filter(m=>m.status==='FINISHED');
+      const allMatches=mData.matches||[];
+      const done=allMatches.filter(m=>m.status==='FINISHED'||m.status==='AWARDED');
+      // Debug log for every stage
+      console.log(`[WC2026] ${apiStage} — total:${allMatches.length} done:${done.length}`,
+        allMatches.map(m=>({status:m.status,home:normTeam(m.homeTeam?.name),away:normTeam(m.awayTeam?.name),winner:m.score?.winner})));
       if(!done.length)break;
       for(let i=0;i<size;i++){
         let t1,t2;
@@ -2035,6 +2040,7 @@ async function fetchLiveResults(){
         else{const prev=ROUNDS[ROUNDS.indexOf(key)-1];t1=bracket[prev][i*2]||null;t2=bracket[prev][i*2+1]||null;}
         if(!t1||!t2)continue;
         const m=done.find(m=>apiMatchTeams(m,t1,t2));
+        if(key==='r32')console.log(`[WC2026] R32 slot ${i} (${t1} vs ${t2}) →`,m?`${normTeam(m.homeTeam?.name)} vs ${normTeam(m.awayTeam?.name)} winner:${m.score?.winner}`:'NO MATCH FOUND');
         if(!m)continue;
         const w=m.score?.winner;
         bracket[key][i]=w==='HOME_TEAM'?normTeam(m.homeTeam?.name):w==='AWAY_TEAM'?normTeam(m.awayTeam?.name):null;
@@ -2054,7 +2060,9 @@ async function fetchLiveResults(){
     const data=await fetchData();
     data.results={groups,wildcards,bracket:{...bracket,champion},lastFetched:Date.now()};
     await writeData(data);S.allData=data;
-    toast('Results updated!');
+    const r32w=bracket.r32.filter(Boolean).length;
+    console.log('[WC2026] Saved bracket.r32:',bracket.r32);
+    toast(`Results updated! Groups:${Object.keys(groups).length} · R32 winners:${r32w}/16`);
   }catch(e){showErr('Live fetch failed: '+e.message);}
   S.saving=false;render();
 }
