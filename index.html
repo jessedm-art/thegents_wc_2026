@@ -1290,15 +1290,15 @@ ${rNav('home')}
 
   <!-- ══ STANDINGS ══ -->
   ${users.length?`
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px">
     <div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)">Standings</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:1px">${users.length} players${hasRes?' · tap card to view bracket':''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:1px">${users.length} players${hasRes?' · tap to view bracket':''}</div>
     </div>
     ${hasRes?`<div style="font-size:10px;color:var(--muted);background:var(--bg2);border:1px solid var(--border);padding:3px 9px;border-radius:20px;font-weight:600">Live scores</div>`:''}
   </div>
 
-  <div style="padding:0 12px 6px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 12px 8px">
   ${ranked.map(({u,sc,p},idx)=>{
     const rank=idx+1;
     const s=st(rank);
@@ -1307,62 +1307,46 @@ ${rNav('home')}
     const champElim=champ&&elim.has(champ);
     const isChampion=champ&&res?.bracket?.champion===champ;
     const hasMedal=rank<=3;
-    // Avatar: champion flag if picked, else initial
-    const avatarSize=hasMedal?58:48;
-    const avatarFontSize=hasMedal?32:24;
-    const avatarBg=champ?`linear-gradient(135deg,${s.badge},${s.badge}dd)`:'var(--ink)';
 
     return`
     <div onclick="viewUser('${u.username}')"
-      style="background:${s.bg};border:${isMe?'2.5px':'1.5px'} solid ${isMe?s.bar:s.border};border-radius:${hasMedal?18:14}px;margin-bottom:${hasMedal?10:7}px;padding:${hasMedal?14:11}px ${hasMedal?16:13}px;cursor:pointer;position:relative;overflow:hidden;box-shadow:${s.glow!=='none'?`0 4px 20px ${s.glow}`:'none'};-webkit-tap-highlight-color:transparent;transition:transform .1s,box-shadow .1s"
-      onmousedown="this.style.transform='scale(.985)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.985)'" ontouchend="this.style.transform=''">
+      style="background:${s.bg};border:${isMe?'2.5px':'1.5px'} solid ${isMe?s.bar:s.border};border-radius:16px;padding:12px 10px 10px;cursor:pointer;position:relative;overflow:hidden;box-shadow:${s.glow!=='none'?`0 4px 20px ${s.glow}`:'none'};-webkit-tap-highlight-color:transparent;transition:transform .12s;display:flex;flex-direction:column;align-items:center;text-align:center;min-height:160px"
+      onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform=''">
 
-      <!-- decorative watermark for top 3 -->
-      ${hasMedal?`<div style="position:absolute;bottom:-8px;right:-4px;font-size:52px;opacity:.07;pointer-events:none;line-height:1">${medal(rank)}</div>`:''}
-
-      <div style="display:flex;align-items:center;gap:${hasMedal?14:11}px">
-
-        <!-- AVATAR with rank badge -->
-        <div style="position:relative;flex-shrink:0">
-          <div style="width:${avatarSize}px;height:${avatarSize}px;border-radius:50%;background:${champ?'#fff':'var(--ink)'};border:2px solid ${s.border};display:flex;align-items:center;justify-content:center;font-size:${avatarFontSize}px;line-height:1;${s.glow!=='none'?`box-shadow:0 0 0 4px ${s.glow}`:''}">
-            ${champ?f(champ):`<span style="color:#fff;font-size:${hasMedal?20:16}px;font-weight:800">${u.username[0].toUpperCase()}</span>`}
-          </div>
-          <!-- rank badge pinned to bottom-left of avatar -->
-          <div style="position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);background:${s.badge};color:${s.badgeC};font-size:${hasMedal?10:8}px;font-weight:800;padding:2px ${hasMedal?8:6}px;border-radius:8px;white-space:nowrap;border:1.5px solid ${s.border};letter-spacing:.02em">
-            ${medal(rank)||('#'+rank)}
-          </div>
-        </div>
-
-        <!-- NAME + CHAMPION PICK -->
-        <div style="flex:1;min-width:0;padding-bottom:6px">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span style="font-size:${hasMedal?15:13}px;font-weight:${hasMedal?800:600};color:${s.color}">${u.username}</span>
-            ${isMe?`<span style="font-size:8px;background:${s.bar};color:#fff;padding:2px 6px;border-radius:3px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">you</span>`:''}
-          </div>
-          ${champ?`
-          <div style="font-size:11px;color:${s.sub};margin-top:3px;display:flex;align-items:center;gap:4px">
-            <span style="font-size:12px">${isChampion?'🏆':champElim?'💀':'🎯'}</span>
-            <span style="${champElim?'text-decoration:line-through;opacity:.6':''}">${f(champ)} ${champ}</span>
-            ${champElim&&!isChampion?`<span style="font-size:9px;background:#fecaca;color:#dc2626;padding:1px 5px;border-radius:3px;font-weight:700">OUT</span>`:''}
-            ${isChampion?`<span style="font-size:9px;background:#bbf7d0;color:#16a34a;padding:1px 5px;border-radius:3px;font-weight:700">CHAMPION</span>`:''}
-          </div>`:`
-          <div style="font-size:11px;color:${s.sub};margin-top:3px">${hasRes?'No champion pick':'—'}</div>`}
-          <!-- completion bar -->
-          <div style="height:2.5px;background:rgba(0,0,0,${hasMedal?.1:.07});border-radius:2px;margin-top:8px;overflow:hidden">
-            <div style="height:100%;width:${p}%;background:${s.bar};border-radius:2px;${hasRes?'opacity:.5':''}"></div>
-          </div>
-        </div>
-
-        <!-- SCORE / PROGRESS -->
-        <div style="text-align:right;flex-shrink:0;min-width:48px">
-          ${hasRes?`
-          <div style="font-size:${hasMedal?30:22}px;font-weight:800;color:${s.color};line-height:1">${sc}</div>
-          <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:${s.sub};margin-top:1px">pts</div>
-          `:`
-          <div style="font-size:${hasMedal?17:14}px;font-weight:700;color:${s.sub}">${p}%</div>
-          <div style="font-size:8px;color:${s.sub};margin-top:1px">done</div>`}
+      <!-- top row: rank left, score right -->
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:10px">
+        <div style="background:${s.badge};color:${s.badgeC};font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;letter-spacing:.02em;line-height:1.4">${medal(rank)||('#'+rank)}</div>
+        <div style="text-align:right">
+          ${hasRes?`<span style="font-size:20px;font-weight:800;color:${s.color};line-height:1">${sc}</span><span style="font-size:8px;font-weight:700;color:${s.sub};margin-left:2px">pts</span>`
+          :`<span style="font-size:13px;font-weight:700;color:${s.sub}">${p}%</span>`}
         </div>
       </div>
+
+      <!-- big flag / avatar -->
+      <div style="width:${hasMedal?60:52}px;height:${hasMedal?60:52}px;border-radius:50%;background:${champ?'var(--surface)':'var(--ink)'};border:2px solid ${s.border};display:flex;align-items:center;justify-content:center;font-size:${hasMedal?34:28}px;line-height:1;margin-bottom:10px;${s.glow!=='none'?`box-shadow:0 0 0 5px ${s.glow}`:''}">
+        ${champ?f(champ):`<span style="color:#fff;font-size:${hasMedal?22:18}px;font-weight:800">${u.username[0].toUpperCase()}</span>`}
+      </div>
+
+      <!-- name -->
+      <div style="font-size:${hasMedal?14:12}px;font-weight:${hasMedal?800:700};color:${s.color};line-height:1.2;word-break:break-word;max-width:100%">${u.username}</div>
+      ${isMe?`<div style="margin-top:3px"><span style="font-size:8px;background:${s.bar};color:#fff;padding:1px 6px;border-radius:3px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">you</span></div>`:''}
+
+      <!-- champion pick -->
+      ${champ?`
+      <div style="margin-top:5px;font-size:10px;color:${s.sub};display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap;line-height:1.3">
+        <span>${isChampion?'🏆':champElim?'💀':'🎯'}</span>
+        <span style="${champElim&&!isChampion?'text-decoration:line-through;opacity:.55':''}white-space:nowrap">${champ}</span>
+        ${champElim&&!isChampion?`<span style="font-size:8px;background:#fecaca;color:#dc2626;padding:1px 4px;border-radius:3px;font-weight:700">OUT</span>`:''}
+        ${isChampion?`<span style="font-size:8px;background:#bbf7d0;color:#16a34a;padding:1px 4px;border-radius:3px;font-weight:700">🏆</span>`:''}
+      </div>`:`<div style="margin-top:5px;font-size:10px;color:${s.sub}">—</div>`}
+
+      <!-- progress bar -->
+      <div style="width:100%;height:2.5px;background:rgba(0,0,0,.08);border-radius:2px;margin-top:10px;overflow:hidden">
+        <div style="height:100%;width:${p}%;background:${s.bar};border-radius:2px;opacity:${hasRes?.4:.85}"></div>
+      </div>
+
+      <!-- subtle watermark -->
+      ${hasMedal?`<div style="position:absolute;top:-6px;right:-4px;font-size:42px;opacity:.06;pointer-events:none;line-height:1">${medal(rank)}</div>`:''}
     </div>`;
   }).join('')}
   </div>
