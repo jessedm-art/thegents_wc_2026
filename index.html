@@ -2018,41 +2018,49 @@ async function fetchLiveResults(){
     thirds.sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
     const wildcards=thirds.slice(0,8).map(x=>x.team);
 
-    /* 3 — Bracket: resolve each knockout stage in order */
-    const tempPicks={groups,wildcards,bracket:{r32:Array(16).fill(null),r16:Array(8).fill(null),qf:Array(4).fill(null),sf:Array(2).fill(null)}};
+    /* 3 — Bracket: fetch ALL WC matches, resolve bracket by team-name matching (no stage filter) */
     const bracket={r32:Array(16).fill(null),r16:Array(8).fill(null),qf:Array(4).fill(null),sf:Array(2).fill(null)};
     let champion=null;
 
-    const STAGE_MAP=[['ROUND_OF_32','r32',16],['ROUND_OF_16','r16',8],['QUARTER_FINALS','qf',4],['SEMI_FINALS','sf',2]];
-    for(const[apiStage,key,size]of STAGE_MAP){
-      const mRes=await pFetch(`${base}/competitions/WC/matches?stage=${apiStage}`);
-      if(!mRes.ok){console.warn('[WC2026] stage fetch failed:',apiStage,mRes.status);break;}
-      const mData=await mRes.json();
-      const allMatches=mData.matches||[];
-      const done=allMatches.filter(m=>m.status==='FINISHED'||m.status==='AWARDED');
-      // Debug log for every stage
-      console.log(`[WC2026] ${apiStage} — total:${allMatches.length} done:${done.length}`,
-        allMatches.map(m=>({status:m.status,home:normTeam(m.homeTeam?.name),away:normTeam(m.awayTeam?.name),winner:m.score?.winner})));
-      if(!done.length)break;
+    const allMRes=await pFetch(`${base}/competitions/WC/matches`);
+    let doneAll=[];
+    if(allMRes.ok){
+      const allMData=await allMRes.json();
+      doneAll=(allMData.matches||[]).filter(m=>m.status==='FINISHED'||m.status==='AWARDED');
+      console.log('[WC2026] All WC matches:',(allMData.matches||[]).length,'— done:',doneAll.length,
+        doneAll.map(m=>({home:normTeam(m.homeTeam?.name),away:normTeam(m.awayTeam?.name),winner:m.score?.winner})));
+    }else{console.warn('[WC2026] matches fetch failed:',allMRes.status);}
+
+    // R32 — fixed matchups, match by team name
+    for(let i=0;i<16;i++){
+      const t1=slotTeam(R32_SLOTS[i][0],{groups,wildcards});
+      const t2=slotTeam(R32_SLOTS[i][1],{groups,wildcards});
+      if(!t1||!t2)continue;
+      const m=doneAll.find(m=>apiMatchTeams(m,t1,t2));
+      console.log(`[WC2026] R32 slot ${i} (${t1} vs ${t2}) →`,m?`winner:${m.score?.winner}`:'not played yet');
+      if(!m)continue;
+      const w=m.score?.winner;
+      bracket.r32[i]=w==='HOME_TEAM'?normTeam(m.homeTeam?.name):w==='AWAY_TEAM'?normTeam(m.awayTeam?.name):null;
+    }
+
+    // R16, QF, SF — derive teams from previous round winners
+    for(const key of['r16','qf','sf']){
+      const prev=ROUNDS[ROUNDS.indexOf(key)-1];
+      const size=ROUND_SIZES[key];
       for(let i=0;i<size;i++){
-        let t1,t2;
-        if(key==='r32'){t1=slotTeam(R32_SLOTS[i][0],tempPicks);t2=slotTeam(R32_SLOTS[i][1],tempPicks);}
-        else{const prev=ROUNDS[ROUNDS.indexOf(key)-1];t1=bracket[prev][i*2]||null;t2=bracket[prev][i*2+1]||null;}
+        const t1=bracket[prev][i*2]||null,t2=bracket[prev][i*2+1]||null;
         if(!t1||!t2)continue;
-        const m=done.find(m=>apiMatchTeams(m,t1,t2));
-        if(key==='r32')console.log(`[WC2026] R32 slot ${i} (${t1} vs ${t2}) →`,m?`${normTeam(m.homeTeam?.name)} vs ${normTeam(m.awayTeam?.name)} winner:${m.score?.winner}`:'NO MATCH FOUND');
+        const m=doneAll.find(m=>apiMatchTeams(m,t1,t2));
         if(!m)continue;
         const w=m.score?.winner;
         bracket[key][i]=w==='HOME_TEAM'?normTeam(m.homeTeam?.name):w==='AWAY_TEAM'?normTeam(m.awayTeam?.name):null;
       }
-      tempPicks.bracket[key]=[...bracket[key]];
     }
 
-    /* 4 — Final */
-    const fRes=await pFetch(`${base}/competitions/WC/matches?stage=FINAL`);
-    if(fRes.ok){
-      const fData=await fRes.json();
-      const fm=(fData.matches||[]).find(m=>m.status==='FINISHED');
+    // Final — match the two SF winners
+    const [sf0,sf1]=bracket.sf;
+    if(sf0&&sf1){
+      const fm=doneAll.find(m=>apiMatchTeams(m,sf0,sf1));
       if(fm){const w=fm.score?.winner;champion=w==='HOME_TEAM'?normTeam(fm.homeTeam?.name):w==='AWAY_TEAM'?normTeam(fm.awayTeam?.name):null;}
     }
 
