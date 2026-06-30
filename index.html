@@ -1308,6 +1308,32 @@ ${rNav('home')}
     const isChampion=champ&&res?.bracket?.champion===champ;
     const hasMedal=rank<=3;
 
+    // ── mini bracket dots ──────────────────────────────────────────
+    const rb=u.bracket||{};
+    const rRes=res?.bracket||{};
+    const mkDot=(pk,rs)=>{
+      const c=!pk?'var(--border)':!rs?'var(--border2)':pk===rs?'var(--green)':'var(--red)';
+      return '<div style="width:3px;height:3px;border-radius:50%;background:'+c+';flex-shrink:0"></div>';
+    };
+    // row of dots with optional group separator every N items
+    const mkRow=(key,size,grp)=>{
+      const pk=rb[key]||[], rs=rRes[key]||[];
+      const parts=[];
+      for(let i=0;i<size;i++){
+        if(i>0) parts.push('<div style="width:'+(grp&&i%grp===0?'4':'2')+'px;flex-shrink:0"></div>');
+        parts.push(mkDot(pk[i],rs[i]));
+      }
+      return '<div style="display:flex;justify-content:center">'+parts.join('')+'</div>';
+    };
+    const bkt=[
+      mkRow('r32',16,4),   // 4 groups of 4 → bracket quarters
+      mkRow('r16',8,4),    // 2 groups of 4 → bracket halves
+      mkRow('qf',4,0),
+      mkRow('sf',2,0),
+      '<div style="display:flex;justify-content:center">'+mkDot(rb.champion,rRes.champion)+'</div>'
+    ].join('');
+    // ──────────────────────────────────────────────────────────────
+
     return`
     <div onclick="viewUser('${u.username}')"
       style="background:${s.bg};border:${isMe?'2.5px':'1.5px'} solid ${isMe?s.bar:s.border};border-radius:16px;padding:12px 10px 10px;cursor:pointer;position:relative;overflow:hidden;box-shadow:${s.glow!=='none'?`0 4px 20px ${s.glow}`:'none'};-webkit-tap-highlight-color:transparent;transition:transform .12s;display:flex;flex-direction:column;align-items:center;text-align:center;min-height:160px"
@@ -1340,15 +1366,22 @@ ${rNav('home')}
         ${isChampion?`<span style="font-size:8px;background:#bbf7d0;color:#16a34a;padding:1px 4px;border-radius:3px;font-weight:700">🏆</span>`:''}
       </div>`:`<div style="margin-top:5px;font-size:10px;color:${s.sub}">—</div>`}
 
-      <!-- progress bar -->
-      <div style="width:100%;height:2.5px;background:rgba(0,0,0,.08);border-radius:2px;margin-top:10px;overflow:hidden">
-        <div style="height:100%;width:${p}%;background:${s.bar};border-radius:2px;opacity:${hasRes?.4:.85}"></div>
+      <!-- mini bracket pyramid -->
+      <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:9px;padding:6px 2px 4px;border-top:1px solid ${s.border};opacity:.9">
+        ${bkt}
       </div>
 
       <!-- subtle watermark -->
       ${hasMedal?`<div style="position:absolute;top:-6px;right:-4px;font-size:42px;opacity:.06;pointer-events:none;line-height:1">${medal(rank)}</div>`:''}
     </div>`;
   }).join('')}
+  </div>
+
+  <!-- bracket legend -->
+  <div style="display:flex;justify-content:center;gap:12px;padding:2px 0 10px;font-size:8px;color:var(--muted);letter-spacing:.02em">
+    <span style="display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>correct</span>
+    <span style="display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>wrong</span>
+    <span style="display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--border2);display:inline-block;flex-shrink:0"></span>pending</span>
   </div>
   `:`<div class="no-data" style="padding:32px 0">No participants yet</div>`}
 
