@@ -578,6 +578,8 @@ const R32_SLOTS=[
   [{type:'fixed',team:'Colombia'},{type:'fixed',team:'Ghana'}],            // M87
 ];
 const ROUNDS=['r32','r16','qf','sf'];
+// Approximate match dates for R32 slots (4 per day, slots 0-3=Jun28, 4-7=Jun29, 8-11=Jun30, 12-15=Jul1)
+const R32_DATES=['2026-06-28','2026-06-28','2026-06-28','2026-06-28','2026-06-29','2026-06-29','2026-06-29','2026-06-29','2026-06-30','2026-06-30','2026-06-30','2026-06-30','2026-07-01','2026-07-01','2026-07-01','2026-07-01'];
 const ROUND_LABELS={r32:'Round of 32',r16:'Round of 16',qf:'Quarterfinals',sf:'Semifinals'};
 const ROUND_SIZES={r32:16,r16:8,qf:4,sf:2};
 const POINTS={group:3,wildcard:5,r32:5,r16:10,qf:15,sf:20,champion:50};
@@ -817,7 +819,7 @@ function rBracketResultsUser(picks,results){
   const elim=eliminatedTeams(rb);
   const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
 
-  function matchCard(key,i){
+  function matchCard(key,i,fullWidth=false){
     const[t1,t2]=matchTeams(key,i,rb,picks||{});
     const winner=(rb[key]||[])[i];const userPick=(pb[key]||[])[i];
     if(!t1&&!t2)return'';
@@ -825,7 +827,7 @@ function rBracketResultsUser(picks,results){
     const isWrong=winner&&userPick&&userPick!==winner;
     const pts=POINTS[key];
     const bdrColor=isCorrect?'#16a34a':isWrong?'#dc2626':'var(--border)';
-    return`<div style="flex-shrink:0;width:118px;background:var(--surface);border:2px solid ${bdrColor};border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:0">
+    return`<div style="${fullWidth?'width:100%':'flex-shrink:0;width:118px'};background:var(--surface);border:2px solid ${bdrColor};border-radius:12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:0">
       <div style="display:flex;align-items:center;gap:5px;min-width:0">
         <span style="font-size:18px;line-height:1;flex-shrink:0">${f(t1||'')}</span>
         <span style="font-size:11px;font-weight:${winner===t1?700:400};color:${winner===t1?'var(--ink)':'var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh(t1||'TBD')}</span>
@@ -869,15 +871,25 @@ function rBracketResultsUser(picks,results){
     const played=rr.filter(Boolean).length;
     const correct=rr.filter((w,i)=>w&&rp[i]===w).length;
     const roundLabel={r32:'Round of 32',r16:'Round of 16',qf:'Quarterfinals',sf:'Semifinals'}[key];
+    let cardsHTML;
+    if(key==='r32'){
+      const byDate={};
+      for(let i=0;i<16;i++){const d=R32_DATES[i];if(!byDate[d])byDate[d]=[];byDate[d].push(i);}
+      cardsHTML=Object.keys(byDate).sort().map(d=>{
+        const dLabel=new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+        const cards=byDate[d].map(i=>matchCard(key,i,true)).filter(Boolean).join('');
+        return cards?`<div style="margin-bottom:10px"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${dLabel}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${cards}</div></div>`:'';
+      }).join('');
+    }else{
+      cardsHTML=`<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">${Array.from({length:n},(_,i)=>matchCard(key,i)).join('')}</div>`;
+    }
     return`
     <div style="margin:0 16px 14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${roundLabel}</span>
         <span style="font-size:11px;color:var(--muted)">${correct}/${played} correct</span>
       </div>
-      <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch">
-        ${Array.from({length:n},(_,i)=>matchCard(key,i)).join('')}
-      </div>
+      ${cardsHTML}
     </div>`;
   }).join('')}`;
 }
@@ -1745,59 +1757,79 @@ function rAllPicks(){
 
 function rUserPicksView(u){
   const isMe=u.username===S.username;
-  const tab=S.picksTab;
+  const res=S.allData?.results||{};
+  const sc=scoreUser(u,res);
+  const hasRes=!!(res.groups&&Object.keys(res.groups).length);
+
+  // Status helpers: c=correct, w=wrong, p=pending, n=none
+  const gSt=(team,gid)=>{const a=(res.groups||{})[gid]||[];if(!a.length)return'p';return a.includes(team)?'c':'w';};
+  const wcSt=(team)=>{const a=res.wildcards||[];if(a.length<8)return'p';return a.includes(team)?'c':'w';};
+  const bSt=(pick,result)=>!pick?'n':!result?'p':pick===result?'c':'w';
+
+  const badge=(s)=>s==='c'?'<span style="font-size:8px;color:#16a34a;font-weight:800;flex-shrink:0;line-height:1">✓</span>':s==='w'?'<span style="font-size:8px;color:#dc2626;font-weight:800;flex-shrink:0;line-height:1">✗</span>':'';
+  const pillBg=(s)=>s==='c'?'#f0fdf4':s==='w'?'#fef2f2':'var(--surface)';
+  const pillBdr=(s)=>s==='c'?'#86efac':s==='w'?'#fca5a5':'var(--border)';
+  const pillClr=(s)=>s==='c'?'#15803d':s==='w'?'#dc2626':'var(--ink)';
+
+  const pill=(team,st)=>`<div style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 5px 2px 4px;border-radius:5px;background:${pillBg(st)};border:1px solid ${pillBdr(st)};flex-shrink:0;max-width:84px;overflow:hidden"><span style="font-size:13px;line-height:1;flex-shrink:0">${f(team)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${pillClr(st)};font-weight:${st==='c'?700:400}">${sh(team)}</span>${badge(st)}</div>`;
+  const emptyPill=()=>'<div style="display:inline-flex;align-items:center;width:62px;height:22px;border-radius:5px;background:var(--bg2);border:1px dashed var(--border)"></div>';
+
+  // Groups column
+  const groupsHTML=GROUPS.map(g=>{
+    const picks=(u.groups||{})[g.id]||[];
+    return`<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+      <div style="width:14px;font-size:9px;font-weight:700;color:var(--muted);flex-shrink:0;text-align:center">${g.id}</div>
+      <div style="display:flex;gap:3px">${picks[0]?pill(picks[0],gSt(picks[0],g.id)):emptyPill()}${picks[1]?pill(picks[1],gSt(picks[1],g.id)):emptyPill()}</div>
+    </div>`;
+  }).join('');
+
+  // Wildcards column
+  const wcs=u.wildcards||[];
+  const wcHTML=wcs.length?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">${wcs.map(t=>pill(t,wcSt(t))).join('')}</div>`:`<span style="font-size:11px;color:var(--muted)">Not picked</span>`;
+
+  // Bracket right column
+  const rb=u.bracket||{};const rRes=res.bracket||{};
+  const roundSection=(key,label,pts,cols)=>{
+    const size=ROUND_SIZES[key];
+    const pills=Array.from({length:size},(_,i)=>{const pick=rb[key]?.[i],result=rRes[key]?.[i];const st=bSt(pick,result);return pick?pill(pick,st):emptyPill();}).join('');
+    return`<div style="margin-bottom:10px"><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">${label} <span style="font-weight:400;opacity:.7">+${pts}pts</span></div><div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:3px">${pills}</div></div>`;
+  };
+
+  const champPick=rb.champion,champResult=rRes.champion,champSt=bSt(champPick,champResult);
+  const champHTML=`<div><div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:4px">🏆 Champion <span style="font-weight:400;opacity:.7">+${POINTS.champion}pts</span></div>${champPick?pill(champPick,champSt):emptyPill()}${champSt==='c'?' <span style="font-size:12px">🎉</span>':''}</div>`;
+
+  const avatar=u.bracket?.champion?`<div style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${f(u.bracket.champion)}</div>`:`<div style="width:36px;height:36px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0">${u.username[0].toUpperCase()}</div>`;
+
   return`${rNav('allpicks')}
 <div class="screen">
-  <div style="display:flex;align-items:center;gap:12px;padding:14px 16px 0">
+  <div style="display:flex;align-items:center;gap:10px;padding:12px 14px 10px;border-bottom:1px solid var(--border)">
     <button class="back-btn" onclick="S.viewingUser=null;render()">←</button>
-    <div class="uavatar${isMe?' uavatar-me':''}" style="width:40px;height:40px;font-size:${u.bracket?.champion?'22':'16'}px;${u.bracket?.champion?'background:#f1f5f9;':''}">${u.bracket?.champion?f(u.bracket.champion):u.username[0].toUpperCase()}</div>
-    <div>
-      <div style="font-size:16px;font-weight:700;color:var(--ink)">${u.username}${isMe?' <span class="you-badge">you</span>':''}</div>
-      <div style="font-size:11px;color:var(--muted)">${u.bracket?.champion?`🏆 ${u.bracket.champion} · `:''}${completion(u)}% complete</div>
+    ${avatar}
+    <div style="flex:1;min-width:0">
+      <div style="font-size:15px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.username}${isMe?' <span class="you-badge">you</span>':''}</div>
+      <div style="font-size:10px;color:var(--muted)">${completion(u)}% complete${hasRes?' · '+sc+' pts':''}</div>
     </div>
   </div>
-  <div class="picks-tabs" style="margin-top:12px">
-    <button class="ptab${tab==='groups'?' active':''}" onclick="switchTab('groups')">Groups</button>
-    <button class="ptab${tab==='wildcards'?' active':''}" onclick="switchTab('wildcards')">Wildcards</button>
-    <button class="ptab${tab==='champions'?' active':''}" onclick="switchTab('champions')">Champion</button>
+  <div style="display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:80px">
+    <div style="flex:0 0 auto;padding:10px 8px 10px 10px;border-right:1px solid var(--border)">
+      <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:7px">Groups <span style="font-weight:400;opacity:.7">+${POINTS.group}pts</span></div>
+      ${groupsHTML}
+      <div style="margin-top:10px">
+        <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:5px">Wildcards <span style="font-weight:400;opacity:.7">+${POINTS.wildcard}pts</span></div>
+        ${wcHTML}
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:10px 12px">
+      ${roundSection('r32','Round of 32',POINTS.r32,4)}
+      ${roundSection('r16','Round of 16',POINTS.r16,4)}
+      ${roundSection('qf','Quarterfinals',POINTS.qf,4)}
+      ${roundSection('sf','Semifinals',POINTS.sf,2)}
+      ${champHTML}
+    </div>
   </div>
-  <div id="picks-body" style="padding-bottom:80px">${rUserPicksBody(tab,u)}</div>
 </div>`;}
 
-function rUserPicksBody(tab,u){
-  if(tab==='groups'){
-    return GROUPS.map(g=>{
-      const picks=(u.groups||{})[g.id]||[];
-      return`<div class="group-picks-row">
-        <div class="picks-group-label">Grp ${g.id}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-          ${picks.length>=1?
-            picks.map(t=>`<div class="picks-team-pill"><span class="flag-sm">${f(t)}</span>${t}</div>`).join(''):
-            '<span style="color:var(--muted);font-size:12px">Not picked</span>'}
-        </div>
-      </div>`;
-    }).join('');
-  }
-  if(tab==='wildcards'){
-    const wcs=u.wildcards||[];
-    return`<div style="padding:16px">
-      ${wcs.length?`<div style="display:flex;flex-wrap:wrap;gap:8px">${wcs.map(t=>`<div class="picks-team-pill"><span class="flag-sm">${f(t)}</span>${t}</div>`).join('')}</div>`:
-        '<span style="color:var(--muted);font-size:13px">No wildcards picked yet</span>'}
-    </div>`;
-  }
-  if(tab==='champions'){
-    const champ=u.bracket?.champion;
-    return`<div style="padding:40px 24px;text-align:center">
-      ${champ?
-        `<div style="font-size:56px;margin-bottom:10px">${f(champ)}</div>
-         <div style="font-size:22px;font-weight:700;color:var(--ink)">${champ}</div>
-         <div style="font-size:12px;color:var(--muted);margin-top:6px">Predicted World Cup Champion</div>`:
-        `<div style="font-size:40px;margin-bottom:14px">🤷</div>
-         <div style="color:var(--muted);font-size:14px">No champion picked yet</div>`}
-    </div>`;
-  }
-  return'';
-}
+function rUserPicksBody(tab,u){return'';}
 
 function rPicksBody(tab,users){
   if(!users.length)return`<div class="no-data">No predictions saved yet</div>`;
@@ -2046,6 +2078,28 @@ ${rNav('leaderboard')}
         ${f(t)} ${t}
       </label>`)).join('')}
     </div>
+
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:16px 0 10px">R32 Winners (manual)</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Select winner for each match · overrides API fetch</div>
+    ${Array.from({length:16},(_,ri)=>{
+      const t1=R32_SLOTS[ri][0].team,t2=R32_SLOTS[ri][1].team;
+      const stored=(results.bracket?.r32||[])[ri];
+      return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:11px">
+        <div style="width:16px;color:var(--muted);font-size:9px;text-align:right;flex-shrink:0">${ri+1}</div>
+        <label style="display:flex;align-items:center;gap:3px;cursor:pointer;flex:1;min-width:0">
+          <input type="radio" name="rbr32-${ri}" class="res-bracket" data-i="${ri}" data-t="${t1}" ${stored===t1?'checked':''}>
+          <span>${f(t1)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh(t1)}</span>
+        </label>
+        <span style="color:var(--muted);font-size:9px;flex-shrink:0">vs</span>
+        <label style="display:flex;align-items:center;gap:3px;cursor:pointer;flex:1;min-width:0">
+          <input type="radio" name="rbr32-${ri}" class="res-bracket" data-i="${ri}" data-t="${t2}" ${stored===t2?'checked':''}>
+          <span>${f(t2)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh(t2)}</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--muted);font-size:10px;flex-shrink:0">
+          <input type="radio" name="rbr32-${ri}" data-i="${ri}" data-t="" ${!stored?'checked':''}>—
+        </label>
+      </div>`;
+    }).join('')}
 
     <div style="margin:16px 0 12px;padding-top:14px;border-top:1px solid var(--border)">
       <label class="check-label"><input type="checkbox" id="i-bracket-open" ${S.allData?.bracketOpen?'checked':''}>
@@ -2398,6 +2452,20 @@ function apiMatchTeams(m,t1,t2){
   const h=normTeam(m.homeTeam?.name),a=normTeam(m.awayTeam?.name);
   return(h===t1&&a===t2)||(h===t2&&a===t1);
 }
+// Extract the match winner, including games decided by penalty shootout.
+// score.winner can be 'HOME_TEAM', 'AWAY_TEAM', 'DRAW' (when pens decided it),
+// or null — so we fall back to score.penalties when the first two don't match.
+function winnerFrom(m){
+  const w=m.score?.winner;
+  if(w==='HOME_TEAM')return normTeam(m.homeTeam?.name);
+  if(w==='AWAY_TEAM')return normTeam(m.awayTeam?.name);
+  // Penalty shootout fallback: whichever side scored more pens wins
+  const ph=m.score?.penalties?.home??-1;
+  const pa=m.score?.penalties?.away??-1;
+  if(ph>pa)return normTeam(m.homeTeam?.name);
+  if(pa>ph)return normTeam(m.awayTeam?.name);
+  return null;
+}
 
 async function fetchLiveResults(){
   if(!S.isAdmin)return;
@@ -2452,8 +2520,7 @@ async function fetchLiveResults(){
       const m=doneAll.find(m=>apiMatchTeams(m,t1,t2));
       console.log(`[WC2026] R32 slot ${i} (${t1} vs ${t2}) →`,m?`winner:${m.score?.winner}`:'not played yet');
       if(!m)continue;
-      const w=m.score?.winner;
-      bracket.r32[i]=w==='HOME_TEAM'?normTeam(m.homeTeam?.name):w==='AWAY_TEAM'?normTeam(m.awayTeam?.name):null;
+      bracket.r32[i]=winnerFrom(m);
     }
 
     // R16, QF, SF — derive teams from previous round winners
@@ -2465,8 +2532,7 @@ async function fetchLiveResults(){
         if(!t1||!t2)continue;
         const m=doneAll.find(m=>apiMatchTeams(m,t1,t2));
         if(!m)continue;
-        const w=m.score?.winner;
-        bracket[key][i]=w==='HOME_TEAM'?normTeam(m.homeTeam?.name):w==='AWAY_TEAM'?normTeam(m.awayTeam?.name):null;
+        bracket[key][i]=winnerFrom(m);
       }
     }
 
@@ -2474,7 +2540,7 @@ async function fetchLiveResults(){
     const [sf0,sf1]=bracket.sf;
     if(sf0&&sf1){
       const fm=doneAll.find(m=>apiMatchTeams(m,sf0,sf1));
-      if(fm){const w=fm.score?.winner;champion=w==='HOME_TEAM'?normTeam(fm.homeTeam?.name):w==='AWAY_TEAM'?normTeam(fm.awayTeam?.name):null;}
+      if(fm){champion=winnerFrom(fm);}
     }
 
     /* 5 — Save */
@@ -2496,13 +2562,15 @@ async function doSaveResults(){
     if(!groups[g])groups[g]=[];groups[g].push(t);
   });
   const wildcards=[...document.querySelectorAll('.res-wc:checked')].map(cb=>cb.dataset.t);
+  // R32 bracket winners from radio buttons
+  const bracketR32=Array(16).fill(null);
+  for(let i=0;i<16;i++){const cb=document.querySelector(`[name="rbr32-${i}"]:checked`);if(cb&&cb.dataset.t)bracketR32[i]=cb.dataset.t;}
   const locked=document.getElementById('i-lock')?.checked;
   const bracketOpen=document.getElementById('i-bracket-open')?.checked;
   S.saving=true;render();
   try{
     const data=await fetchData();
-    // Preserve existing bracket/champion data — manual override only updates groups & wildcards
-    data.results={...(data.results||{}),groups,wildcards};
+    data.results={...(data.results||{}),groups,wildcards,bracket:{...(data.results?.bracket||{}),r32:bracketR32}};
     data.adminLocked=locked;data.bracketOpen=bracketOpen;
     await writeData(data);S.allData=data;toast('Results saved!');
   }catch(e){showErr(e.message);}
