@@ -1591,19 +1591,23 @@ ${rNav('home')}
       const d=sz||5;
       return '<div style="width:'+d+'px;height:'+d+'px;border-radius:50%;background:'+c+';flex-shrink:0"></div>';
     };
-    const mkCol=(key,size)=>{
+    const mkCol=(key,size,grp)=>{
       const pk=rb[key]||[], rs=rRes[key]||[];
-      const dots=Array.from({length:size},(_,i)=>mkDot(pk[i],rs[i])).join('');
-      return '<div style="display:flex;flex-direction:column;justify-content:space-between;height:110px">'+dots+'</div>';
+      const parts=[];
+      for(let i=0;i<size;i++){
+        if(i>0) parts.push('<div style="height:'+(grp&&i%grp===0?'4':'1')+'px;flex-shrink:0"></div>');
+        parts.push(mkDot(pk[i],rs[i]));
+      }
+      return '<div style="display:flex;flex-direction:column;align-items:center">'+parts.join('')+'</div>';
     };
     const champPk=rb.champion, champRs=rRes.champion;
     const champDotC=!champPk?'var(--border)':!champRs?'var(--border2)':champPk===champRs?'var(--green)':'var(--red)';
-    const bkt='<div style="display:flex;flex-direction:row;align-items:center;gap:5px">'
-      +mkCol('r32',16)
-      +mkCol('r16',8)
-      +mkCol('qf',4)
-      +mkCol('sf',2)
-      +'<div style="display:flex;align-items:center;justify-content:center;height:110px"><div style="width:7px;height:7px;border-radius:50%;background:'+champDotC+';flex-shrink:0"></div></div>'
+    const bkt='<div style="display:flex;flex-direction:row;align-items:center;gap:4px">'
+      +mkCol('r32',16,4)
+      +mkCol('r16',8,4)
+      +mkCol('qf',4,0)
+      +mkCol('sf',2,0)
+      +'<div style="width:6px;height:6px;border-radius:50%;background:'+champDotC+';flex-shrink:0"></div>'
       +'</div>';
     // ──────────────────────────────────────────────────────────────
 
