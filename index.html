@@ -1220,8 +1220,20 @@ function rHome(){
   const myRank=ranked.findIndex(x=>x.u.username===S.username)+1;
   const myScore=scoreUser(S.myPicks||{},res);
 
-  // Per-rank visual style tokens
-  const ST={
+  // Per-rank visual style tokens — theme-aware
+  const _theme=document.documentElement.getAttribute('data-theme')||'light';
+  const _dark=_theme==='dark', _purple=_theme==='purple';
+  const ST=_dark?{
+    1:{bg:'linear-gradient(135deg,#1c1400,#241c00)',border:'#b45309',color:'#fcd34d',sub:'#d97706',badge:'rgba(180,83,9,.35)',badgeC:'#fde68a',bar:'#d97706',glow:'rgba(217,119,6,.18)'},
+    2:{bg:'linear-gradient(135deg,#141416,#1c1c22)',border:'#52525b',color:'var(--ink)',sub:'var(--muted)',badge:'rgba(82,82,91,.35)',badgeC:'var(--ink2)',bar:'#71717a',glow:'rgba(113,113,122,.1)'},
+    3:{bg:'linear-gradient(135deg,#1a0f00,#221400)',border:'#92400e',color:'#fdba74',sub:'#fb923c',badge:'rgba(146,64,14,.35)',badgeC:'#fcd9a2',bar:'#c2410c',glow:'rgba(194,65,12,.15)'},
+    _:{bg:'var(--surface)',border:'var(--border)',color:'var(--ink)',sub:'var(--muted)',badge:'var(--bg2)',badgeC:'var(--muted)',bar:'var(--border2)',glow:'none'}
+  }:_purple?{
+    1:{bg:'linear-gradient(135deg,#1e0d4a,#2c1666)',border:'#a78bfa',color:'#ede9fe',sub:'#c4b5fd',badge:'rgba(167,139,250,.25)',badgeC:'#ede9fe',bar:'#a78bfa',glow:'rgba(167,139,250,.22)'},
+    2:{bg:'linear-gradient(135deg,#130d30,#1b1242)',border:'#6d28d9',color:'var(--ink)',sub:'var(--muted)',badge:'rgba(109,40,217,.3)',badgeC:'#c4b5fd',bar:'#7c3aed',glow:'rgba(124,58,237,.14)'},
+    3:{bg:'linear-gradient(135deg,#0e0a26,#160f38)',border:'#5b21b6',color:'var(--ink)',sub:'var(--muted)',badge:'rgba(91,33,182,.25)',badgeC:'#c4b5fd',bar:'#6d28d9',glow:'rgba(109,40,217,.1)'},
+    _:{bg:'var(--surface)',border:'var(--border)',color:'var(--ink)',sub:'var(--muted)',badge:'var(--bg2)',badgeC:'var(--muted)',bar:'var(--border2)',glow:'none'}
+  }:{
     1:{bg:'linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%)',border:'#f59e0b',color:'#78350f',sub:'#92400e',badge:'#fde68a',badgeC:'#78350f',bar:'#d97706',glow:'rgba(245,158,11,.18)'},
     2:{bg:'linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%)',border:'#94a3b8',color:'#1e293b',sub:'#475569',badge:'#e2e8f0',badgeC:'#475569',bar:'#64748b',glow:'rgba(148,163,184,.14)'},
     3:{bg:'linear-gradient(135deg,#fff7ed 0%,#fed7aa 100%)',border:'#fb923c',color:'#7c2d12',sub:'#9a3412',badge:'#fed7aa',badgeC:'#7c2d12',bar:'#ea580c',glow:'rgba(251,146,60,.16)'},
@@ -1320,29 +1332,31 @@ ${rNav('home')}
     const isChampion=champ&&res?.bracket?.champion===champ;
     const hasMedal=rank<=3;
 
-    // ── mini bracket dots (4px, inline right column) ──────────────
+    // ── mini bracket pyramid (right column) ──────────────────────
     const rb=u.bracket||{};
     const rRes=res?.bracket||{};
-    const mkDot=(pk,rs)=>{
+    const mkDot=(pk,rs,sz)=>{
       const c=!pk?'var(--border)':!rs?'var(--border2)':pk===rs?'var(--green)':'var(--red)';
-      return '<div style="width:4px;height:4px;border-radius:50%;background:'+c+';flex-shrink:0"></div>';
+      const d=sz||5;
+      return '<div style="width:'+d+'px;height:'+d+'px;border-radius:50%;background:'+c+';flex-shrink:0"></div>';
     };
-    // row of dots; grp = insert wider gap every N dots
     const mkRow=(key,size,grp)=>{
       const pk=rb[key]||[], rs=rRes[key]||[];
       const parts=[];
       for(let i=0;i<size;i++){
-        if(i>0) parts.push('<div style="width:'+(grp&&i%grp===0?'3':'1')+'px;flex-shrink:0"></div>');
+        if(i>0) parts.push('<div style="width:'+(grp&&i%grp===0?'4':'1')+'px;flex-shrink:0"></div>');
         parts.push(mkDot(pk[i],rs[i]));
       }
       return '<div style="display:flex;justify-content:center">'+parts.join('')+'</div>';
     };
+    const champPk=rb.champion, champRs=rRes.champion;
+    const champDotC=!champPk?'var(--border)':!champRs?'var(--border2)':champPk===champRs?'var(--green)':'var(--red)';
     const bkt=[
-      mkRow('r32',16,4),   // 4 groups of 4 (bracket quarters)
-      mkRow('r16',8,4),    // 2 groups of 4 (bracket halves)
+      mkRow('r32',16,4),
+      mkRow('r16',8,4),
       mkRow('qf',4,0),
       mkRow('sf',2,0),
-      '<div style="display:flex;justify-content:center">'+mkDot(rb.champion,rRes.champion)+'</div>'
+      '<div style="display:flex;justify-content:center"><div style="width:8px;height:8px;border-radius:50%;background:'+champDotC+';flex-shrink:0"></div></div>'
     ].join('');
     // ──────────────────────────────────────────────────────────────
 
@@ -1387,7 +1401,7 @@ ${rNav('home')}
         </div>
 
         <!-- right col: bracket pyramid -->
-        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;width:86px;justify-content:center">
+        <div style="display:flex;flex-direction:column;gap:7px;flex-shrink:0;width:100px;justify-content:center">
           ${bkt}
         </div>
 
@@ -1400,10 +1414,10 @@ ${rNav('home')}
   </div>
 
   <!-- bracket legend -->
-  <div style="display:flex;justify-content:center;gap:12px;padding:2px 0 10px;font-size:8px;color:var(--muted);letter-spacing:.02em">
-    <span style="display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>correct</span>
-    <span style="display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>wrong</span>
-    <span style="display:flex;align-items:center;gap:3px"><span style="width:5px;height:5px;border-radius:50%;background:var(--border2);display:inline-block;flex-shrink:0"></span>pending</span>
+  <div style="display:flex;justify-content:center;gap:14px;padding:2px 0 10px;font-size:9px;color:var(--muted);letter-spacing:.02em">
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0"></span>correct</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>wrong</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--border2);display:inline-block;flex-shrink:0"></span>pending</span>
   </div>
   `:`<div class="no-data" style="padding:32px 0">No participants yet</div>`}
 
