@@ -817,25 +817,25 @@ function eliminatedTeams(rb){
 function rBracketTree(picks,results){
   if(!isBracketOpen())return'';
   const rb=results?.bracket||{};const pb=picks?.bracket||{};
-  // ── Compact ESPN-style dimensions ──
-  // Target: fits a ~900px container at natural size; viewBox scales it down on mobile
-  const TH=13,BH=TH*2,BW=80,GAP=10,CW=BW+GAP;
-  // U = vertical spacing unit per R32 slot
-  const U=22; // 16 slots * 22 = 352px natural height
-  const H=16*U; // 352
-  const RX=[0,CW,2*CW,3*CW,4*CW]; // [0,90,180,270,360]
-  // Extra width right of Final: champion trophy display
-  const EXTRA=36;
-  const W=RX[4]+BW+EXTRA; // 476
-  // 3rd place box below the bracket, centered under SF column
-  const THIRD_GAP=18;
-  const THIRD_Y=H+THIRD_GAP;
-  const THIRD_X=RX[3]+(CW/2)-(BW/2); // between SF and Final columns
-  const SVG_H=THIRD_Y+BH+6;
+
+  // ── Natural-pixel dimensions, horizontal scroll — same approach as ESPN ──
+  // Boxes render at readable size; container scrolls horizontally on narrow screens.
+  const TH=15,  // row height in px
+        BH=TH*2, // box height
+        BW=96,   // box width
+        GAP=14,  // gap between round columns
+        CW=BW+GAP; // column stride
+  const U=28;        // vertical spacing per R32 slot — H = 16*U = 448px
+  const H=16*U;      // 448
+  const RX=[0,CW,2*CW,3*CW,4*CW]; // x-left of each column
+  const SVG_W=RX[4]+BW+56; // +56 for champion emoji + trophy right of Final
+  const SVG_H=H;
 
   const roundKeys=['r32','r16','qf','sf'];
   const counts=[16,8,4,2,1];
+  const LNC='var(--border2)';
 
+  // Center-Y of match i in round-index ri (0=R32 … 4=Final)
   function ym(ri,i){
     if(ri===4)return H/2;
     const sp=U*Math.pow(2,ri);
@@ -854,70 +854,49 @@ function rBracketTree(picks,results){
     return(pb[roundKeys[ri]]||[])[i]||null;
   }
 
-  // Derive 3rd-place teams (losers of SF[0] and SF[1])
-  function getThirdTeams(){
-    const sf0=[...matchTeams('sf',0,rb,picks||{})];
-    const sf1=[...matchTeams('sf',1,rb,picks||{})];
-    const w0=(rb.sf||[])[0],w1=(rb.sf||[])[1];
-    const l0=w0?sf0.find(t=>t&&t!==w0)||null:null;
-    const l1=w1?sf1.find(t=>t&&t!==w1)||null:null;
-    // If SF not played yet but teams are known, show as TBD
-    return[l0||sf0[0]||null,l1||sf1[0]||null];
-  }
-
   const ln=[],bx=[];
-  const LNS='var(--border2)',LNW='.6';
 
-  // Connector lines (behind boxes)
+  // ── Connector lines ──
   for(let ri=1;ri<=4;ri++){
     for(let pi=0;pi<counts[ri];pi++){
       const yP=ym(ri,pi),yC0=ym(ri-1,pi*2),yC1=ym(ri-1,pi*2+1);
-      const xE=RX[ri-1]+BW,xN=RX[ri],xM=xE+(xN-xE)/2;
-      ln.push(`<line x1="${xE}" y1="${yC0}" x2="${xM}" y2="${yC0}" stroke="${LNS}" stroke-width="${LNW}"/>`);
-      ln.push(`<line x1="${xE}" y1="${yC1}" x2="${xM}" y2="${yC1}" stroke="${LNS}" stroke-width="${LNW}"/>`);
-      ln.push(`<line x1="${xM}" y1="${yC0}" x2="${xM}" y2="${yC1}" stroke="${LNS}" stroke-width="${LNW}"/>`);
-      ln.push(`<line x1="${xM}" y1="${yP}" x2="${xN}" y2="${yP}" stroke="${LNS}" stroke-width="${LNW}"/>`);
+      const xE=RX[ri-1]+BW,xN=RX[ri],xM=(xE+xN)/2;
+      ln.push(`<line x1="${xE}" y1="${yC0}" x2="${xM}" y2="${yC0}" stroke="${LNC}" stroke-width="1"/>`);
+      ln.push(`<line x1="${xE}" y1="${yC1}" x2="${xM}" y2="${yC1}" stroke="${LNC}" stroke-width="1"/>`);
+      ln.push(`<line x1="${xM}" y1="${yC0}" x2="${xM}" y2="${yC1}" stroke="${LNC}" stroke-width="1"/>`);
+      ln.push(`<line x1="${xM}" y1="${yP}" x2="${xN}" y2="${yP}" stroke="${LNC}" stroke-width="1"/>`);
     }
   }
-  // Dashed lines from SF losers down to 3rd place box
-  const sf0y=ym(3,0),sf1y=ym(3,1);
-  const thirdYc=THIRD_Y+BH/2;
-  const thirdXc=THIRD_X+BW/2;
-  // drop lines from right edge of SF boxes going down then center to 3rd place
-  const dropX0=RX[3]+BW+4,dropX1=RX[3]+BW+4;
-  ln.push(`<line x1="${dropX0}" y1="${sf0y}" x2="${dropX0}" y2="${THIRD_Y-4}" stroke="${LNS}" stroke-width=".5" stroke-dasharray="3,2"/>`);
-  ln.push(`<line x1="${dropX1}" y1="${sf1y}" x2="${dropX1}" y2="${THIRD_Y-4}" stroke="${LNS}" stroke-width=".5" stroke-dasharray="3,2"/>`);
-  ln.push(`<line x1="${dropX0}" y1="${THIRD_Y-4}" x2="${THIRD_X}" y2="${THIRD_Y-4}" stroke="${LNS}" stroke-width=".5" stroke-dasharray="3,2"/>`);
 
-  // Helper to render a match box
+  // ── Match box renderer ──
   function drawBox(rx,by,t1,t2,w,up){
     const ok=!!(w&&up===w),ng=!!(w&&up&&up!==w);
     const bc=ok?'#16a34a':ng?'#dc2626':'var(--border)';
-    const bwStr=ok||ng?'1.4':'.7';
-    bx.push(`<rect x="${rx}" y="${by}" width="${BW}" height="${BH}" rx="3" fill="var(--surface)" stroke="${bc}" stroke-width="${bwStr}"/>`);
-    bx.push(`<line x1="${rx+2}" y1="${by+TH}" x2="${rx+BW-2}" y2="${by+TH}" stroke="${bc}" stroke-width=".35" stroke-dasharray="2,2"/>`);
+    const sw=ok||ng?'1.5':'1';
+    bx.push(`<rect x="${rx}" y="${by}" width="${BW}" height="${BH}" rx="4" fill="var(--surface)" stroke="${bc}" stroke-width="${sw}"/>`);
+    bx.push(`<line x1="${rx+3}" y1="${by+TH}" x2="${rx+BW-3}" y2="${by+TH}" stroke="${bc}" stroke-width=".5" stroke-dasharray="2,2"/>`);
     [t1,t2].forEach((t,ti)=>{
       const ty=by+ti*TH;
       const isW=!!(w&&w===t),isL=!!(w&&t&&!isW);
-      if(isW)bx.push(`<rect x="${rx+1}" y="${ty+1}" width="${BW-2}" height="${TH-2}" rx="2" fill="${ok?'rgba(22,163,74,.11)':'rgba(100,116,139,.08)'}"/>`);
+      if(isW)bx.push(`<rect x="${rx+1}" y="${ty+1}" width="${BW-2}" height="${TH-2}" rx="3" fill="${ok?'rgba(22,163,74,.12)':'rgba(100,116,139,.09)'}"/>`);
       if(t){
-        bx.push(`<text x="${rx+2}" y="${ty+TH-2}" font-size="9" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(t)}</text>`);
+        bx.push(`<text x="${rx+3}" y="${ty+TH-3}" font-size="11" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(t)}</text>`);
         const nc=isL?'var(--border2)':'var(--ink)';
         const fw=isW?'600':'400';
-        const deco=isL?'text-decoration:line-through;':'';
-        bx.push(`<text x="${rx+14}" y="${ty+TH-2}" font-size="7" fill="${nc}" font-weight="${fw}" style="${deco}">${sh(t)}</text>`);
+        const deco=isL?'text-decoration:line-through;opacity:.5;':'';
+        bx.push(`<text x="${rx+18}" y="${ty+TH-3}" font-size="9" fill="${nc}" font-weight="${fw}" style="${deco}">${sh(t)}</text>`);
         if(up===t){
           const dc=!w?'var(--muted)':ok?'#16a34a':'#dc2626';
-          bx.push(`<circle cx="${rx+BW-5}" cy="${ty+Math.round(TH/2)}" r="3" fill="${dc}"/>`);
-          if(w)bx.push(`<text x="${rx+BW-7.5}" y="${ty+Math.round(TH/2)+3}" font-size="5" font-weight="700" fill="white">${ok?'✓':'✗'}</text>`);
+          bx.push(`<circle cx="${rx+BW-7}" cy="${ty+Math.round(TH/2)}" r="4" fill="${dc}"/>`);
+          if(w)bx.push(`<text x="${rx+BW-10}" y="${ty+Math.round(TH/2)+3.5}" font-size="6" font-weight="700" fill="white">${ok?'✓':'✗'}</text>`);
         }
       }else{
-        bx.push(`<text x="${rx+3}" y="${ty+TH-2}" font-size="6.5" fill="var(--muted)">TBD</text>`);
+        bx.push(`<text x="${rx+4}" y="${ty+TH-3}" font-size="9" fill="var(--muted)">TBD</text>`);
       }
     });
   }
 
-  // Main bracket boxes
+  // ── Main bracket ──
   for(let ri=0;ri<=4;ri++){
     for(let i=0;i<counts[ri];i++){
       const yc=ym(ri,i),by=Math.round(yc-BH/2),rx=RX[ri];
@@ -927,44 +906,59 @@ function rBracketTree(picks,results){
     }
   }
 
-  // 3rd Place box
-  const[th1,th2]=getThirdTeams();
-  const thW=rb.third||null,thUp=pb.third||null;
-  // Only show 3rd place box if at least one SF team is known
-  if(th1||th2){
-    // Label
-    bx.push(`<text x="${THIRD_X}" y="${THIRD_Y-5}" font-size="5.5" font-weight="700" fill="var(--muted)" letter-spacing=".06em" text-transform="uppercase" style="text-transform:uppercase;letter-spacing:.06em">3RD PLACE</text>`);
-    drawBox(THIRD_X,THIRD_Y,th1,th2,thW,thUp);
-    // Bronze medal to right
-    if(thW){
-      bx.push(`<text x="${THIRD_X+BW+3}" y="${THIRD_Y+BH/2+5}" font-size="13" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">🥉</text>`);
-    }
+  // ── Champion display right of Final ──
+  const champ=rb.champion;
+  const champY=Math.round(ym(4,0));
+  if(champ){
+    bx.push(`<text x="${RX[4]+BW+5}" y="${champY+2}" font-size="18" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(champ)}</text>`);
+    bx.push(`<text x="${RX[4]+BW+6}" y="${champY+18}" font-size="10" font-weight="700" fill="var(--amber)">🏆</text>`);
   }
 
-  // Champion trophy (right of Final)
-  const champ=rb.champion;
-  const champY=ym(4,0);
-  if(champ){
-    bx.push(`<text x="${RX[4]+BW+3}" y="${Math.round(champY)-2}" font-size="12" font-family="Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(champ)}</text>`);
-    bx.push(`<text x="${RX[4]+BW+4}" y="${Math.round(champY)+11}" font-size="8" font-weight="700" fill="var(--amber)">🏆</text>`);
+  // ── 3rd place section (below main bracket as HTML strip) ──
+  function getThirdTeams(){
+    const sf0=[...matchTeams('sf',0,rb,picks||{})];
+    const sf1=[...matchTeams('sf',1,rb,picks||{})];
+    const w0=(rb.sf||[])[0],w1=(rb.sf||[])[1];
+    const l0=w0?sf0.find(t=>t&&t!==w0)||null:null;
+    const l1=w1?sf1.find(t=>t&&t!==w1)||null:null;
+    return[l0||null,l1||null];
   }
+  const[th1,th2]=getThirdTeams();
+  const thW=rb.third||null,thUp=pb.third||null;
+  const thirdHtml=(th1||th2)?`
+  <div style="margin-top:10px;padding:9px 0 0;border-top:1px solid var(--border)">
+    <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">🥉 3rd Place Match</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      ${[th1,th2].map((t,ti)=>`<div style="flex:1;display:flex;align-items:center;gap:6px;background:var(--surface);border:1.5px solid ${thUp&&thW?(thUp===thW?(thUp===t?'#16a34a':'var(--border)'):(thUp===t?'#dc2626':'var(--border)')):'var(--border)'};border-radius:8px;padding:6px 8px">
+        <span style="font-size:16px">${t?f(t):'🏳'}</span>
+        <span style="font-size:11px;font-weight:${thW===t?700:400};color:${thW&&thW!==t?'var(--muted)':'var(--ink)'}">${t?sh(t):'TBD'}</span>
+        ${thW===t?`<span style="font-size:10px;margin-left:auto">🥉</span>`:''}
+        ${thUp===t&&!thW?`<span style="font-size:8px;background:var(--bg2);color:var(--muted);padding:1px 4px;border-radius:3px;margin-left:auto">pick</span>`:''}
+        ${thUp===t&&thW===t?`<span style="font-size:8px;background:var(--green-light);color:var(--green);padding:1px 4px;border-radius:3px;font-weight:700;margin-left:auto">✓ +${POINTS.third}</span>`:''}
+        ${thUp===t&&thW&&thW!==t?`<span style="font-size:8px;background:var(--red-light);color:var(--red);padding:1px 4px;border-radius:3px;font-weight:700;margin-left:auto">✗</span>`:''}
+      </div>`).join(`<div style="font-size:9px;color:var(--muted);font-weight:700;flex-shrink:0">VS</div>`)}
+    </div>
+  </div>`:''
 
   const rLabels=['R32','R16','QF','SF','Final'];
   return`
 <div class="section-header" style="margin-top:4px"><span class="section-title">Tournament Bracket</span></div>
-<div style="padding:4px 14px 12px">
-  <div style="display:flex;margin-bottom:3px;padding-right:${EXTRA}px">
-    ${rLabels.map((l)=>`<div style="flex:1;font-size:7px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${l}</div>`).join('')}
+<div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 14px 4px">
+  <div style="min-width:${SVG_W}px">
+    <div style="display:flex;margin-bottom:4px;padding-right:56px">
+      ${rLabels.map((l,ri)=>`<div style="width:${CW}px;flex-shrink:0;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em">${l}</div>`).join('')}
+    </div>
+    <svg width="${SVG_W}" height="${SVG_H}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
+      ${ln.join('')}
+      ${bx.join('')}
+    </svg>
+    ${thirdHtml}
   </div>
-  <svg viewBox="0 0 ${W} ${SVG_H}" width="100%" style="display:block;max-height:420px">
-    ${ln.join('\n    ')}
-    ${bx.join('\n    ')}
-  </svg>
-  <div style="display:flex;gap:12px;margin-top:5px;font-size:9px;color:var(--muted)">
-    <span style="display:flex;align-items:center;gap:3px"><svg width="7" height="7" style="overflow:visible;display:inline-block"><circle cx="3.5" cy="3.5" r="3" fill="#16a34a"/></svg>pick ✓</span>
-    <span style="display:flex;align-items:center;gap:3px"><svg width="7" height="7" style="overflow:visible;display:inline-block"><circle cx="3.5" cy="3.5" r="3" fill="#dc2626"/></svg>pick ✗</span>
-    <span style="display:flex;align-items:center;gap:3px"><svg width="7" height="7" style="overflow:visible;display:inline-block"><circle cx="3.5" cy="3.5" r="3" fill="var(--muted)"/></svg>pending</span>
-  </div>
+</div>
+<div style="display:flex;gap:12px;padding:4px 14px 12px;font-size:10px;color:var(--muted)">
+  <span style="display:flex;align-items:center;gap:4px"><svg width="8" height="8" style="overflow:visible;display:inline-block"><circle cx="4" cy="4" r="3.5" fill="#16a34a"/></svg>your pick ✓</span>
+  <span style="display:flex;align-items:center;gap:4px"><svg width="8" height="8" style="overflow:visible;display:inline-block"><circle cx="4" cy="4" r="3.5" fill="#dc2626"/></svg>your pick ✗</span>
+  <span style="display:flex;align-items:center;gap:4px"><svg width="8" height="8" style="overflow:visible;display:inline-block"><circle cx="4" cy="4" r="3.5" fill="var(--muted)"/></svg>pending</span>
 </div>`;
 }
 
