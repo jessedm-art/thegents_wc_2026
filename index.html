@@ -1308,26 +1308,26 @@ ${rNav('home')}
     const isChampion=champ&&res?.bracket?.champion===champ;
     const hasMedal=rank<=3;
 
-    // ── mini bracket dots ──────────────────────────────────────────
+    // ── mini bracket dots (4px, inline right column) ──────────────
     const rb=u.bracket||{};
     const rRes=res?.bracket||{};
     const mkDot=(pk,rs)=>{
       const c=!pk?'var(--border)':!rs?'var(--border2)':pk===rs?'var(--green)':'var(--red)';
-      return '<div style="width:3px;height:3px;border-radius:50%;background:'+c+';flex-shrink:0"></div>';
+      return '<div style="width:4px;height:4px;border-radius:50%;background:'+c+';flex-shrink:0"></div>';
     };
-    // row of dots with optional group separator every N items
+    // row of dots; grp = insert wider gap every N dots
     const mkRow=(key,size,grp)=>{
       const pk=rb[key]||[], rs=rRes[key]||[];
       const parts=[];
       for(let i=0;i<size;i++){
-        if(i>0) parts.push('<div style="width:'+(grp&&i%grp===0?'4':'2')+'px;flex-shrink:0"></div>');
+        if(i>0) parts.push('<div style="width:'+(grp&&i%grp===0?'3':'1')+'px;flex-shrink:0"></div>');
         parts.push(mkDot(pk[i],rs[i]));
       }
       return '<div style="display:flex;justify-content:center">'+parts.join('')+'</div>';
     };
     const bkt=[
-      mkRow('r32',16,4),   // 4 groups of 4 → bracket quarters
-      mkRow('r16',8,4),    // 2 groups of 4 → bracket halves
+      mkRow('r32',16,4),   // 4 groups of 4 (bracket quarters)
+      mkRow('r16',8,4),    // 2 groups of 4 (bracket halves)
       mkRow('qf',4,0),
       mkRow('sf',2,0),
       '<div style="display:flex;justify-content:center">'+mkDot(rb.champion,rRes.champion)+'</div>'
@@ -1336,11 +1336,11 @@ ${rNav('home')}
 
     return`
     <div onclick="viewUser('${u.username}')"
-      style="background:${s.bg};border:${isMe?'2.5px':'1.5px'} solid ${isMe?s.bar:s.border};border-radius:16px;padding:12px 10px 10px;cursor:pointer;position:relative;overflow:hidden;box-shadow:${s.glow!=='none'?`0 4px 20px ${s.glow}`:'none'};-webkit-tap-highlight-color:transparent;transition:transform .12s;display:flex;flex-direction:column;align-items:center;text-align:center;min-height:160px"
+      style="background:${s.bg};border:${isMe?'2.5px':'1.5px'} solid ${isMe?s.bar:s.border};border-radius:16px;padding:12px 10px 10px;cursor:pointer;position:relative;overflow:hidden;box-shadow:${s.glow!=='none'?`0 4px 20px ${s.glow}`:'none'};-webkit-tap-highlight-color:transparent;transition:transform .12s;display:flex;flex-direction:column;align-items:stretch;min-height:140px"
       onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform=''">
 
       <!-- top row: rank left, score right -->
-      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:8px">
         <div style="background:${s.badge};color:${s.badgeC};font-size:10px;font-weight:800;padding:2px 8px;border-radius:8px;letter-spacing:.02em;line-height:1.4">${medal(rank)||('#'+rank)}</div>
         <div style="text-align:right">
           ${hasRes?`<span style="font-size:20px;font-weight:800;color:${s.color};line-height:1">${sc}</span><span style="font-size:8px;font-weight:700;color:${s.sub};margin-left:2px">pts</span>`
@@ -1348,27 +1348,37 @@ ${rNav('home')}
         </div>
       </div>
 
-      <!-- big flag / avatar -->
-      <div style="width:${hasMedal?60:52}px;height:${hasMedal?60:52}px;border-radius:50%;background:${champ?'var(--surface)':'var(--ink)'};border:2px solid ${s.border};display:flex;align-items:center;justify-content:center;font-size:${hasMedal?34:28}px;line-height:1;margin-bottom:10px;${s.glow!=='none'?`box-shadow:0 0 0 5px ${s.glow}`:''}">
-        ${champ?f(champ):`<span style="color:#fff;font-size:${hasMedal?22:18}px;font-weight:800">${u.username[0].toUpperCase()}</span>`}
-      </div>
+      <!-- body: left (flag + name + champ) | right (bracket) -->
+      <div style="display:flex;flex-direction:row;align-items:center;gap:8px;flex:1">
 
-      <!-- name -->
-      <div style="font-size:${hasMedal?14:12}px;font-weight:${hasMedal?800:700};color:${s.color};line-height:1.2;word-break:break-word;max-width:100%">${u.username}</div>
-      ${isMe?`<div style="margin-top:3px"><span style="font-size:8px;background:${s.bar};color:#fff;padding:1px 6px;border-radius:3px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">you</span></div>`:''}
+        <!-- left col -->
+        <div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;gap:4px;text-align:center">
 
-      <!-- champion pick -->
-      ${champ?`
-      <div style="margin-top:5px;font-size:10px;color:${s.sub};display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap;line-height:1.3">
-        <span>${isChampion?'🏆':champElim?'💀':'🎯'}</span>
-        <span style="${champElim&&!isChampion?'text-decoration:line-through;opacity:.55':''}white-space:nowrap">${champ}</span>
-        ${champElim&&!isChampion?`<span style="font-size:8px;background:#fecaca;color:#dc2626;padding:1px 4px;border-radius:3px;font-weight:700">OUT</span>`:''}
-        ${isChampion?`<span style="font-size:8px;background:#bbf7d0;color:#16a34a;padding:1px 4px;border-radius:3px;font-weight:700">🏆</span>`:''}
-      </div>`:`<div style="margin-top:5px;font-size:10px;color:${s.sub}">—</div>`}
+          <!-- flag / avatar -->
+          <div style="width:${hasMedal?52:44}px;height:${hasMedal?52:44}px;border-radius:50%;background:${champ?'var(--surface)':'var(--ink)'};border:2px solid ${s.border};display:flex;align-items:center;justify-content:center;font-size:${hasMedal?30:24}px;line-height:1;flex-shrink:0;${s.glow!=='none'?`box-shadow:0 0 0 4px ${s.glow}`:''}">
+            ${champ?f(champ):`<span style="color:#fff;font-size:${hasMedal?18:15}px;font-weight:800">${u.username[0].toUpperCase()}</span>`}
+          </div>
 
-      <!-- mini bracket pyramid -->
-      <div style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:9px;padding:6px 2px 4px;border-top:1px solid ${s.border};opacity:.9">
-        ${bkt}
+          <!-- name -->
+          <div style="font-size:${hasMedal?12:11}px;font-weight:${hasMedal?800:700};color:${s.color};line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">${u.username}</div>
+          ${isMe?`<div><span style="font-size:7px;background:${s.bar};color:#fff;padding:1px 5px;border-radius:3px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">you</span></div>`:''}
+
+          <!-- champion pick (no 🎯) -->
+          ${champ?`
+          <div style="font-size:9px;color:${s.sub};display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:wrap;line-height:1.3;max-width:100%;padding:0 1px">
+            ${isChampion?'<span>🏆</span>':champElim?'<span>💀</span>':''}
+            <span style="${champElim&&!isChampion?'text-decoration:line-through;opacity:.55;':''}overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:68px">${champ}</span>
+            ${champElim&&!isChampion?`<span style="font-size:7px;background:#fecaca;color:#dc2626;padding:1px 3px;border-radius:3px;font-weight:700;flex-shrink:0">OUT</span>`:''}
+            ${isChampion?`<span style="font-size:7px;background:#bbf7d0;color:#16a34a;padding:1px 3px;border-radius:3px;font-weight:700;flex-shrink:0">🏆</span>`:''}
+          </div>`:`<div style="font-size:9px;color:${s.sub}">—</div>`}
+
+        </div>
+
+        <!-- right col: bracket pyramid -->
+        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;width:86px;justify-content:center">
+          ${bkt}
+        </div>
+
       </div>
 
       <!-- subtle watermark -->
