@@ -609,7 +609,7 @@ function saveLocal(){
 const nav=sc=>{
   if(sc!=='allpicks')S.viewingUser=null;
   S.screen=sc;render();window.scrollTo(0,0);
-  if(sc==='allpicks')refreshAllData();
+  if(sc==='allpicks'||sc==='home'||sc==='leaderboard')refreshAllData();
 };
 async function refreshAllData(){
   try{
@@ -696,6 +696,96 @@ function completion(picks){
   }
   return Math.round(done/total*100);
 }
+/* ── Bracket results views ─────────────── */
+function rBracketResultsUser(picks,results){
+  const rb=results?.bracket||{};const pb=picks?.bracket||{};
+  const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
+  const hasAny=ROUNDS.some(k=>(rb[k]||[]).some(Boolean));
+  if(!hasAny)return'';
+  return`
+  <div class="section-header" style="margin-top:8px"><span class="section-title">My Bracket</span></div>
+  ${defs.map(({key,label,pts,n})=>{
+    const rr=rb[key]||[];const rp=pb[key]||[];
+    const played=rr.filter(Boolean).length;if(!played)return'';
+    const correct=rr.filter((w,i)=>w&&rp[i]===w).length;
+    return`
+    <details open style="margin:0 16px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r)">
+      <summary style="padding:12px 14px;font-size:12px;font-weight:700;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none">
+        <span style="color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${label}</span>
+        <span style="font-size:11px;color:var(--muted)">${correct}/${played} correct · +${pts}pts ▾</span>
+      </summary>
+      <div style="border-top:1px solid var(--border)">
+        ${Array.from({length:n},(_,i)=>{
+          const[t1,t2]=matchTeams(key,i,rb,picks||{});
+          const winner=rr[i];const userPick=rp[i];
+          if(!t1&&!t2)return'';
+          const isCorrect=winner&&userPick===winner;
+          const isWrong=winner&&userPick&&userPick!==winner;
+          return`
+          <div style="display:flex;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border);gap:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;${winner===t1?'font-weight:700':'color:var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f(t1||'')} ${t1||'TBD'}</div>
+              <div style="font-size:10px;color:var(--muted);line-height:1.4;margin:1px 0">vs</div>
+              <div style="font-size:12px;${winner===t2?'font-weight:700':'color:var(--muted)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f(t2||'')} ${t2||'TBD'}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;min-width:60px">
+              ${!winner?`<span style="font-size:11px;color:var(--muted)">Pending</span>`:
+                isCorrect?`<div style="color:#16a34a;font-size:16px;font-weight:700">✓</div><div style="font-size:9px;color:#16a34a">+${pts} pts</div>`:
+                isWrong?`<div style="color:#dc2626;font-size:16px;font-weight:700">✗</div><div style="font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f(userPick)} ${sh(userPick)}</div>`:
+                `<div style="font-size:10px;color:var(--muted)">Not<br>picked</div>`}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </details>`;
+  }).join('')}
+  ${(picks?.bracket?.champion||rb.champion)?`
+  <div style="margin:0 16px 8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;justify-content:space-between">
+    <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Champion</div>
+    <div style="font-size:14px;font-weight:700">${picks?.bracket?.champion?f(picks.bracket.champion)+' '+picks.bracket.champion:'—'}</div></div>
+    ${rb.champion?picks?.bracket?.champion===rb.champion?
+      `<div style="text-align:center"><div style="color:#16a34a;font-size:20px">✓</div><div style="font-size:9px;color:#16a34a">+${POINTS.champion} pts</div></div>`:
+      `<div style="text-align:right"><div style="color:#dc2626;font-size:16px">✗</div><div style="font-size:9px;color:var(--muted)">${f(rb.champion)} ${sh(rb.champion)}</div></div>`:
+    `<div style="font-size:11px;color:var(--muted)">TBD</div>`}
+  </div>`:''}`;
+}
+
+function rBracketResultsAll(users,results){
+  const rb=results?.bracket||{};
+  const defs=[{key:'r32',label:'Round of 32',pts:POINTS.r32,n:16},{key:'r16',label:'Round of 16',pts:POINTS.r16,n:8},{key:'qf',label:'Quarterfinals',pts:POINTS.qf,n:4},{key:'sf',label:'Semifinals',pts:POINTS.sf,n:2}];
+  const hasAny=ROUNDS.some(k=>(rb[k]||[]).some(Boolean));
+  if(!hasAny)return`<div class="no-data" style="padding:40px 16px">No bracket results yet</div>`;
+  return defs.map(({key,label,pts,n})=>{
+    const rr=rb[key]||[];const played=rr.filter(Boolean).length;if(!played)return'';
+    return`
+    <div style="margin-bottom:4px">
+      <div style="padding:8px 16px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);background:var(--surface)">${label} · +${pts} pts each</div>
+      ${Array.from({length:n},(_,i)=>{
+        const[t1,t2]=matchTeams(key,i,rb,{});const winner=rr[i];
+        if(!t1&&!t2&&!winner)return'';
+        const right=users.filter(u=>(u.bracket||{})[key]?.[i]===winner);
+        const wrong=users.filter(u=>{const p=(u.bracket||{})[key]?.[i];return p&&p!==winner;});
+        const none=users.filter(u=>!(u.bracket||{})[key]?.[i]);
+        return`
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;${winner===t1?'font-weight:700':'color:var(--muted)'}">${f(t1||'')} ${t1||'TBD'}</div>
+            <div style="font-size:10px;color:var(--muted);line-height:1.4;margin:1px 0">vs</div>
+            <div style="font-size:12px;${winner===t2?'font-weight:700':'color:var(--muted)'}">${f(t2||'')} ${t2||'TBD'}</div>
+          </div>
+          <div style="min-width:0;max-width:55%;font-size:10px;line-height:1.5">
+            ${!winner?`<span style="color:var(--muted)">Pending</span>`:`
+            ${right.length?`<div style="color:#16a34a;font-weight:600">✓ ${right.map(u=>`<span style="background:#dcfce7;border-radius:3px;padding:0 3px">${u.username}</span>`).join(' ')}</div>`:''}
+            ${wrong.length?`<div style="color:#dc2626;font-weight:600">✗ ${wrong.map(u=>`<span style="background:#fee2e2;border-radius:3px;padding:0 3px">${u.username}</span>`).join(' ')}</div>`:''}
+            ${none.length?`<div style="color:var(--muted)">— ${none.map(u=>u.username).join(', ')}</div>`:''}
+            `}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
 function scoreUser(picks,results){
   if(!picks||!results)return 0;let sc=0;
   GROUPS.forEach(g=>{const a=(results.groups||{})[g.id]||[];
@@ -1001,6 +1091,8 @@ ${rNav('home')}
   <div style="padding:8px 16px 0">
     <button class="btn-secondary" onclick="nav('leaderboard')">Admin: Enter Results</button>
   </div>`:''}
+
+  ${rBracketResultsUser(S.myPicks,S.allData?.results||{})}
 
   <div style="margin:16px 16px 4px">
     <details open style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);">
@@ -1478,6 +1570,7 @@ ${rNav('leaderboard')}
   <div class="lb-view-tabs">
     <div class="lb-view-tab active" data-lbv="classic" onclick="switchLbView('classic')">Classic</div>
     <div class="lb-view-tab" data-lbv="table" onclick="switchLbView('table')">Breakdown</div>
+    <div class="lb-view-tab" data-lbv="bracket" onclick="switchLbView('bracket')">Bracket</div>
     <div class="lb-view-tab" data-lbv="race" onclick="switchLbView('race')">Score Race</div>
     <div class="lb-view-tab" data-lbv="lebowski" onclick="switchLbView('lebowski')">The Dude</div>
   </div>
@@ -1512,6 +1605,15 @@ ${rNav('leaderboard')}
         <div class="lb-score-col"><div class="lb-score-sm">${sc}</div><div class="lb-pts-sm">pts</div></div>
       </div>`).join('')}
     </div>`:''}`}
+  </div>
+
+  <!-- BRACKET RESULTS -->
+  <div class="lb-view" id="lb-view-bracket">
+    <div style="padding:14px 16px 4px">
+      <div class="screen-eyebrow" style="margin-bottom:2px">Bracket Results</div>
+      <p class="screen-sub">Match results · ✓ correct picks · ✗ wrong picks · — no pick</p>
+    </div>
+    ${rBracketResultsAll(users,results)}
   </div>
 
   <!-- BREAKDOWN TABLE -->
