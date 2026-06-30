@@ -817,10 +817,10 @@ function eliminatedTeams(rb){
 function rBracketTree(picks,results){
   if(!isBracketOpen())return'';
   const rb=results?.bracket||{};const pb=picks?.bracket||{};
-  const U=28,TH=12,BH=TH*2,BW=74,GAP=8,CW=BW+GAP;
-  const H=16*U; // 448
-  const RX=[0,CW,2*CW,3*CW,4*CW]; // [0,82,164,246,328]
-  const W=RX[4]+BW+24; // 426 — extra 24 for champion flag after final
+  const U=40,TH=16,BH=TH*2,BW=96,GAP=16,CW=BW+GAP;
+  const H=16*U; // 640
+  const RX=[0,CW,2*CW,3*CW,4*CW]; // [0,112,224,336,448]
+  const W=RX[4]+BW+30; // 574 — extra 30 for champion flag after final
   const roundKeys=['r32','r16','qf','sf'];
   const counts=[16,8,4,2,1];
 
@@ -906,20 +906,18 @@ function rBracketTree(picks,results){
   const rLabels=['R32','R16','QF','SF','Final'];
   return`
 <div class="section-header" style="margin-top:4px"><span class="section-title">Tournament Bracket</span></div>
-<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-  <div style="padding:6px 16px 12px;min-width:fit-content">
-    <div style="display:flex;margin-bottom:4px;gap:0">
-      ${rLabels.map((l,ri)=>`<div style="width:${CW}px;${ri===4?'flex:1;':''}font-size:7.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${l}</div>`).join('')}
-    </div>
-    <svg width="${W}" height="${H}" style="display:block;overflow:visible">
-      ${ln.join('\n      ')}
-      ${bx.join('\n      ')}
-    </svg>
-    <div style="display:flex;gap:14px;margin-top:8px;font-size:8px;color:var(--muted)">
-      <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:#16a34a"/></svg>pick ✓</span>
-      <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:#dc2626"/></svg>pick ✗</span>
-      <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:var(--muted)"/></svg>pending</span>
-    </div>
+<div style="padding:4px 14px 12px">
+  <div style="display:flex;margin-bottom:4px">
+    ${rLabels.map((l,ri)=>`<div style="flex:${ri===4?'1':'1'};font-size:7.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${l}</div>`).join('')}
+  </div>
+  <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block">
+    ${ln.join('\n    ')}
+    ${bx.join('\n    ')}
+  </svg>
+  <div style="display:flex;gap:14px;margin-top:6px;font-size:8px;color:var(--muted)">
+    <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:#16a34a"/></svg>pick ✓</span>
+    <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:#dc2626"/></svg>pick ✗</span>
+    <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:var(--muted)"/></svg>pending</span>
   </div>
 </div>`;
 }
@@ -939,13 +937,16 @@ function rBracketResultsUser(picks,results){
     if(!t1&&!t2)return'';
     const ko=new Date(R32_KICKOFFS[i]);
     const now=new Date();
-    const isLive=!winner&&now>=ko;
+    const elapsed=now-ko;
+    const isLive=!winner&&elapsed>=0&&elapsed<9000000; // live only within 2.5h of kickoff
     const isPending=!winner&&now<ko;
     const isCorrect=winner&&userPick===winner;
     const isWrong=winner&&userPick&&userPick!==winner;
     const bdrColor=isCorrect?'var(--green)':isWrong?'var(--red)':'var(--border)';
     const bdrW=isCorrect||isWrong?'2px':'1.5px';
-    const timeStr=ko.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+    const pst=ko.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/Los_Angeles'});
+    const est=ko.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true,timeZone:'America/New_York'});
+    const timeStr=`${pst} PT · ${est} ET`;
     const centerLabel=isLive?'🟢 Live':isPending?timeStr:'';
     const pickBadge=(t)=>{
       if(!userPick||userPick!==t)return'';
@@ -1012,7 +1013,13 @@ function rBracketResultsUser(picks,results){
   const champWrong=rb.champion&&champ&&champ!==rb.champion;
 
   return`
-  <div class="section-header" style="margin-top:8px"><span class="section-title">My Bracket</span></div>
+  <details>
+  <summary style="list-style:none;cursor:pointer;user-select:none;display:block;outline:none">
+    <div class="section-header" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between">
+      <span class="section-title">My Bracket</span>
+      <span style="font-size:10px;color:var(--muted);padding-right:16px;margin-top:0">▼</span>
+    </div>
+  </summary>
   <div style="margin:0 16px 12px;background:${champWon?'var(--gold-light)':champElim?'var(--surface)':champWrong?'var(--surface)':'var(--green-light)'};border:2px solid ${champWon?'var(--amber)':champElim||champWrong?'var(--red)':'var(--green)'};border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
     <div>
       <div style="font-size:10px;font-weight:700;color:${champWon?'var(--gold)':'var(--muted)'};text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">🏆 My Champion Pick</div>
@@ -1059,7 +1066,8 @@ function rBracketResultsUser(picks,results){
       </div>
       ${cardsHTML}
     </div>`;
-  }).join('')}`;
+  }).join('')}
+  </details>`;
 }
 
 function rBracketResultsAll(users,results){
