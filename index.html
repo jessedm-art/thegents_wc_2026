@@ -814,6 +814,116 @@ function eliminatedTeams(rb){
   return out;
 }
 
+function rBracketTree(picks,results){
+  if(!isBracketOpen())return'';
+  const rb=results?.bracket||{};const pb=picks?.bracket||{};
+  const U=28,TH=12,BH=TH*2,BW=74,GAP=8,CW=BW+GAP;
+  const H=16*U; // 448
+  const RX=[0,CW,2*CW,3*CW,4*CW]; // [0,82,164,246,328]
+  const W=RX[4]+BW+24; // 426 — extra 24 for champion flag after final
+  const roundKeys=['r32','r16','qf','sf'];
+  const counts=[16,8,4,2,1];
+
+  function ym(ri,i){
+    if(ri===4)return H/2;
+    const sp=U*Math.pow(2,ri);
+    return i*sp+sp/2;
+  }
+  function getTeams(ri,i){
+    if(ri===4)return[(rb.sf||[])[0]||null,(rb.sf||[])[1]||null];
+    return matchTeams(roundKeys[ri],i,rb,picks||{});
+  }
+  function getW(ri,i){
+    if(ri===4)return rb.champion||null;
+    return(rb[roundKeys[ri]]||[])[i]||null;
+  }
+  function getPick(ri,i){
+    if(ri===4)return pb.champion||null;
+    return(pb[roundKeys[ri]]||[])[i]||null;
+  }
+
+  const ln=[],bx=[];
+
+  // Connector lines (drawn first, behind boxes)
+  for(let ri=1;ri<=4;ri++){
+    for(let pi=0;pi<counts[ri];pi++){
+      const yP=ym(ri,pi),yC0=ym(ri-1,pi*2),yC1=ym(ri-1,pi*2+1);
+      const xE=RX[ri-1]+BW,xN=RX[ri],xM=xE+(xN-xE)/2;
+      ln.push(`<line x1="${xE}" y1="${yC0}" x2="${xM}" y2="${yC0}" stroke="var(--border2)" stroke-width=".7"/>`);
+      ln.push(`<line x1="${xE}" y1="${yC1}" x2="${xM}" y2="${yC1}" stroke="var(--border2)" stroke-width=".7"/>`);
+      ln.push(`<line x1="${xM}" y1="${yC0}" x2="${xM}" y2="${yC1}" stroke="var(--border2)" stroke-width=".7"/>`);
+      ln.push(`<line x1="${xM}" y1="${yP}" x2="${xN}" y2="${yP}" stroke="var(--border2)" stroke-width=".7"/>`);
+    }
+  }
+
+  // Match boxes
+  for(let ri=0;ri<=4;ri++){
+    for(let i=0;i<counts[ri];i++){
+      const yc=ym(ri,i),by=Math.round(yc-BH/2),rx=RX[ri];
+      const[t1,t2]=getTeams(ri,i);
+      const w=getW(ri,i),up=getPick(ri,i);
+      const ok=!!(w&&up===w),ng=!!(w&&up&&up!==w);
+      const bc=ok?'#16a34a':ng?'#dc2626':'var(--border)';
+      const bwStr=ok||ng?'1.5':'0.8';
+      // box background
+      bx.push(`<rect x="${rx}" y="${by}" width="${BW}" height="${BH}" rx="3" style="fill:var(--surface)" stroke="${bc}" stroke-width="${bwStr}"/>`);
+      // divider
+      bx.push(`<line x1="${rx+2}" y1="${by+TH}" x2="${rx+BW-2}" y2="${by+TH}" stroke="${bc}" stroke-width="0.4" stroke-dasharray="1,1"/>`);
+
+      [t1,t2].forEach((t,ti)=>{
+        const ty=by+ti*TH;
+        const isW=w&&w===t,isL=w&&t&&!isW;
+        // winner highlight
+        if(isW)bx.push(`<rect x="${rx+1}" y="${ty+1}" width="${BW-2}" height="${TH-2}" rx="2" style="fill:${ok?'rgba(22,163,74,.13)':'rgba(100,116,139,.1)'}"/>`);
+        if(t){
+          // flag
+          bx.push(`<text x="${rx+2}" y="${ty+TH-2}" font-size="10" style="font-family:Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(t)}</text>`);
+          // name
+          const nc=isL?'var(--border2)':'var(--ink)';const nw=isW?'700':'400';
+          const dec=isL?'text-decoration:line-through;':'';
+          bx.push(`<text x="${rx+15}" y="${ty+TH-2}" font-size="7.5" style="fill:${nc};font-weight:${nw};${dec}">${sh(t)}</text>`);
+          // pick dot
+          if(up===t){
+            const dc=!w?'var(--muted)':ok?'#16a34a':'#dc2626';
+            bx.push(`<circle cx="${rx+BW-5}" cy="${ty+Math.round(TH/2)}" r="3.5" style="fill:${dc}"/>`);
+            if(w)bx.push(`<text x="${rx+BW-8}" y="${ty+Math.round(TH/2)+3.5}" font-size="5.5" font-weight="700" style="fill:white">${ok?'✓':'✗'}</text>`);
+          }
+        } else {
+          bx.push(`<text x="${rx+3}" y="${ty+TH-2}" font-size="7" style="fill:var(--muted)">TBD</text>`);
+        }
+      });
+    }
+  }
+
+  // Champion display (right of Final box)
+  const champ=rb.champion;
+  if(champ){
+    const cx=RX[4]+BW+4,cy=H/2;
+    bx.push(`<text x="${cx}" y="${cy+4}" font-size="16" style="font-family:Apple Color Emoji,Segoe UI Emoji,sans-serif">${f(champ)}</text>`);
+    bx.push(`<text x="${cx+2}" y="${cy+TH+4}" font-size="8" font-weight="700" style="fill:var(--amber)">🏆</text>`);
+  }
+
+  const rLabels=['R32','R16','QF','SF','Final'];
+  return`
+<div class="section-header" style="margin-top:4px"><span class="section-title">Tournament Bracket</span></div>
+<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <div style="padding:6px 16px 12px;min-width:fit-content">
+    <div style="display:flex;margin-bottom:4px;gap:0">
+      ${rLabels.map((l,ri)=>`<div style="width:${CW}px;${ri===4?'flex:1;':''}font-size:7.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${l}</div>`).join('')}
+    </div>
+    <svg width="${W}" height="${H}" style="display:block;overflow:visible">
+      ${ln.join('\n      ')}
+      ${bx.join('\n      ')}
+    </svg>
+    <div style="display:flex;gap:14px;margin-top:8px;font-size:8px;color:var(--muted)">
+      <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:#16a34a"/></svg>pick ✓</span>
+      <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:#dc2626"/></svg>pick ✗</span>
+      <span style="display:flex;align-items:center;gap:3px"><svg width="8" height="8" style="display:inline-block;overflow:visible"><circle cx="4" cy="4" r="3.5" style="fill:var(--muted)"/></svg>pending</span>
+    </div>
+  </div>
+</div>`;
+}
+
 function rBracketResultsUser(picks,results){
   const rb=results?.bracket||{};const pb=picks?.bracket||{};
   const hasAny=isBracketOpen()||ROUNDS.some(k=>(rb[k]||[]).some(Boolean));
@@ -1478,6 +1588,9 @@ ${rNav('home')}
     <span style="display:flex;align-items:center;gap:4px"><span style="width:7px;height:7px;border-radius:50%;background:var(--border2);display:inline-block;flex-shrink:0"></span>pending</span>
   </div>
   `:`<div class="no-data" style="padding:32px 0">No participants yet</div>`}
+
+  <!-- ══ TOURNAMENT BRACKET TREE ══ -->
+  ${rBracketTree(S.myPicks,res)}
 
   ${S.isAdmin?`
   <div style="padding:4px 14px 10px">
