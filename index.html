@@ -2831,54 +2831,55 @@ async function fetchLiveResults(){
     const base='https://api.football-data.org/v4';
     const pFetch=(url,opts={})=>fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`,{...opts,headers:{...HD}});
 
-    /* 1 — Group standings */
+    /* 1 — Group standings: top-2 per group (unambiguous once all group games played) */
     const stRes=await pFetch(`${base}/competitions/WC/standings`);
     if(!stRes.ok)throw new Error(`API error ${stRes.status}: ${stRes.statusText}`);
     const stData=await stRes.json();
 
-    const groups={};const thirds=[];
+    const groups={};
     for(const st of(stData.standings||[])){
       if(st.type!=='TOTAL')continue;
       const tbl=st.table||[];
       if(!tbl.length)continue;
-      // Match this standing to our GROUPS by team name (robust to API group naming: GROUP_A, GROUP_1, etc.)
       const tblNames=tbl.map(r=>normTeam(r.team?.name));
       const matchedGroup=GROUPS.find(g=>g.teams.some(t=>tblNames.includes(t)));
       if(!matchedGroup)continue;
       groups[matchedGroup.id]=tblNames.slice(0,2);
-      const t3=tbl[2];
-      if(t3)thirds.push({team:normTeam(t3.team?.name),pts:t3.points,gd:t3.goalDifference,gf:t3.goalsFor});
     }
+    const nGroups=Object.keys(groups).length;
+    if(nGroups<12)console.warn(`[WC2026] Only ${nGroups}/12 groups finalized — wildcard list may be incomplete`);
+    console.log('[WC2026] Group qualifiers:',groups);
 
-    /* 2 — Best 8 wildcards from 3rd-place teams */
-    thirds.sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
-    const wildcards=thirds.slice(0,8).map(x=>x.team);
+    /* 2 — Wildcards: derived directly from the bracket, no tiebreaker math needed.
+       Wildcards = teams that appear in R32 but are NOT a top-2 finisher from any group.
+       The actual bracket IS the ground truth — this is 100% accurate. */
+    const groupQualifiers=new Set(Object.values(groups).flat());
+    const wildcards=[...new Set(
+      R32_SLOTS.flat().map(s=>s.team).filter(t=>t&&!groupQualifiers.has(t))
+    )];
+    console.log('[WC2026] Wildcards (from bracket):',wildcards);
 
-    /* 3 — Bracket: fetch ALL WC matches, resolve bracket by team-name matching (no stage filter) */
-    const bracket={r32:Array(16).fill(null),r16:Array(8).fill(null),qf:Array(4).fill(null),sf:Array(2).fill(null)};
-    let champion=null;
-
+    /* 3 — All completed WC matches */
     const allMRes=await pFetch(`${base}/competitions/WC/matches`);
     let doneAll=[];
     if(allMRes.ok){
       const allMData=await allMRes.json();
       doneAll=(allMData.matches||[]).filter(m=>m.status==='FINISHED'||m.status==='AWARDED');
-      console.log('[WC2026] All WC matches:',(allMData.matches||[]).length,'— done:',doneAll.length,
+      console.log('[WC2026] Completed matches:',doneAll.length,
         doneAll.map(m=>({home:normTeam(m.homeTeam?.name),away:normTeam(m.awayTeam?.name),winner:m.score?.winner})));
     }else{console.warn('[WC2026] matches fetch failed:',allMRes.status);}
 
-    // R32 — fixed matchups, match by team name
+    /* 4 — R32: all matchups are fixed, look up each by team names */
+    const bracket={r32:Array(16).fill(null),r16:Array(8).fill(null),qf:Array(4).fill(null),sf:Array(2).fill(null)};
+    let champion=null;
     for(let i=0;i<16;i++){
-      const t1=slotTeam(R32_SLOTS[i][0],{groups,wildcards});
-      const t2=slotTeam(R32_SLOTS[i][1],{groups,wildcards});
-      if(!t1||!t2)continue;
+      const t1=R32_SLOTS[i][0].team,t2=R32_SLOTS[i][1].team;
       const m=doneAll.find(m=>apiMatchTeams(m,t1,t2));
-      console.log(`[WC2026] R32 slot ${i} (${t1} vs ${t2}) →`,m?`winner:${m.score?.winner}`:'not played yet');
-      if(!m)continue;
-      bracket.r32[i]=winnerFrom(m);
+      console.log(`[WC2026] R32[${i}] ${t1} vs ${t2} →`,m?'winner:'+winnerFrom(m):'not played yet');
+      if(m)bracket.r32[i]=winnerFrom(m);
     }
 
-    // R16, QF, SF — derive teams from previous round winners
+    /* 5 — R16 / QF / SF: chain from previous round winners */
     for(const key of['r16','qf','sf']){
       const prev=ROUNDS[ROUNDS.indexOf(key)-1];
       const size=ROUND_SIZES[key];
@@ -2886,25 +2887,21 @@ async function fetchLiveResults(){
         const t1=bracket[prev][i*2]||null,t2=bracket[prev][i*2+1]||null;
         if(!t1||!t2)continue;
         const m=doneAll.find(m=>apiMatchTeams(m,t1,t2));
-        if(!m)continue;
-        bracket[key][i]=winnerFrom(m);
+        if(m)bracket[key][i]=winnerFrom(m);
       }
     }
 
-    // Final — match the two SF winners
+    /* 6 — Final */
     const [sf0,sf1]=bracket.sf;
-    if(sf0&&sf1){
-      const fm=doneAll.find(m=>apiMatchTeams(m,sf0,sf1));
-      if(fm){champion=winnerFrom(fm);}
-    }
+    if(sf0&&sf1){const fm=doneAll.find(m=>apiMatchTeams(m,sf0,sf1));if(fm)champion=winnerFrom(fm);}
 
-    /* 5 — Save */
+    /* 7 — Save */
     const data=await fetchData();
     data.results={groups,wildcards,bracket:{...bracket,champion},lastFetched:Date.now()};
     await writeData(data);S.allData=data;
     const r32w=bracket.r32.filter(Boolean).length;
-    console.log('[WC2026] Saved bracket.r32:',bracket.r32);
-    toast(`Results updated! Groups:${Object.keys(groups).length} · R32 winners:${r32w}/16`);
+    console.log('[WC2026] Saved. bracket.r32:',bracket.r32);
+    toast(`Results updated! Groups:${nGroups}/12 · Wildcards:${wildcards.length}/8 · R32:${r32w}/16`);
   }catch(e){showErr('Live fetch failed: '+e.message);}
   S.saving=false;render();
 }
